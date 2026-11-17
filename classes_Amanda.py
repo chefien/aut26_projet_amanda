@@ -16,6 +16,9 @@ import sys
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+##individuel
+from shopFrame import shopFrame
+
 
 
 class TitleScreen(ctk.CTkFrame):
@@ -155,7 +158,7 @@ class GameScreen(ctk.CTkFrame):
         self.main_container = ctk.CTkFrame(self, fg_color="#9fb498")
         self.main_container.pack(expand=True, fill="both", padx=10, pady=5)
 
-        # confugaration des colonnes
+        # coniugaration des colonnes
         self.main_container.grid_columnconfigure(0, weight=2) #gauche
         self.main_container.grid_columnconfigure(1, weight=3) #centre
         self.main_container.grid_columnconfigure(2, weight=2) #droite
@@ -184,9 +187,23 @@ class GameScreen(ctk.CTkFrame):
        self.load_btn = ctk.CTkButton(self.top_menu, text = 'Charger', command = self.on_load,fg_color="#52796f", hover_color="#3d5a45", corner_radius=8)
        self.load_btn.pack(padx = 10, side = 'left')
 
-        #Bouton Stats
+       
+       #Bouton Stats
        self.stats_btn = ctk.CTkButton(self.top_menu, text = 'Statistiques du jeu', command = self.on_stats,fg_color="#5297A8", hover_color="#3773a3", corner_radius=8)
        self.stats_btn.pack(padx = 10, side = 'left')
+
+       """
+       NOUVEAUTÉ: BOUTON SHOP
+       """ 
+       #Bouton Magasin
+       self.shop_btn = ctk.CTkButton(self.top_menu, 
+                                     text = 'Magasin', 
+                                     command = self.on_shop,
+                                     fg_color="#30B2A1", 
+                                     hover_color="#37a395", 
+                                     corner_radius=8,
+                                     font = ("arial", 15, 'bold'))
+       self.shop_btn.pack(padx = 10, side = 'left')
 
        #Bouton retour
        self.back_btn = ctk.CTkButton(self.top_menu, text = 'Retourner au menu principal', command = self.on_return,fg_color="#52796f", hover_color="#3d5a45", corner_radius=8)
@@ -463,26 +480,14 @@ class GameScreen(ctk.CTkFrame):
     def on_options(self):
         print("Bouton options cliqué")
 
-    def on_stats(self):
+    def on_stats(self):            
+        self.switch_panel('stats')
 
-        self.stats_btn.configure(text = 'Retourner', command = self.on_return_fishing)
+    def on_shop(self):
+        self.switch_panel('shop')
 
-        self.stats_container = ctk.CTkFrame(self, fg_color="#9fb498")
-        self.main_container.pack_forget()
-        self.stats_container.pack(expand=True, fill="both", padx=10, pady=5)
-
-        self.create_stats_panel()
-
-
-    
-
-    def on_return_fishing(self):
-        plt.close('all') 
-        if hasattr(self, 'stats_container') and self.stats_container.winfo_exists():
-            self.stats_container.destroy() 
-
-        self.stats_btn.configure(text = 'Statistiques du jeu', command = self.on_stats)
-        self.main_container.pack(expand=True, fill="both", padx=10, pady=5)
+    def on_return_game(self):
+        self.switch_panel('main')
 
     def on_return(self):
         
@@ -494,6 +499,58 @@ class GameScreen(ctk.CTkFrame):
 
         # Revient à l'écran titre
         self.master.show_frame(TitleScreen)
+
+   
+    def switch_panel(self, target_name):
+        '''
+        switch entre main, stats et le magasin
+        '''
+        plt.close('all')
+
+        # Cacher tous les containers
+        if hasattr(self, 'main_container') and self.main_container.winfo_exists():
+            self.main_container.pack_forget()
+        
+        if hasattr(self, 'stats_container') and self.stats_container.winfo_exists():
+            self.stats_container.pack_forget()
+            self.stats_container.destroy() # le detruit pour que le graph se reset au besoin
+            
+        if hasattr(self, 'shop_container') and self.shop_container.winfo_exists():
+            self.shop_container.pack_forget()
+            self.shop_container.destroy() # reset pour le graph soit reset aussi
+
+        # ouvre le container demandé
+        if target_name == 'main':
+            self.main_container.pack(expand=True, fill="both", padx=10, pady=5)
+
+        elif target_name == 'stats':
+            self.stats_container = ctk.CTkFrame(self, fg_color="#9fb498")
+            self.stats_container.pack(expand=True, fill="both", padx=10, pady=5)
+            
+            # temp on ajoute un bouton retour dans le container
+            return_temp_btn = ctk.CTkButton(
+                self.stats_container, 
+                text='Retourner au jeu', 
+                command=lambda: self.switch_panel('main'),
+                fg_color="#52796f", hover_color="#3d5a45"
+            )
+            return_temp_btn.pack(pady=10)
+            self.create_stats_panel()
+
+        elif target_name == 'shop':
+            self.shop_container = shopFrame(self)
+            self.shop_container.pack(expand=True, fill="both", padx=10, pady=5)
+
+
+           # temp on ajoute un bouton retour dans le container
+            return_temp_btn = ctk.CTkButton(
+                self.shop_container, 
+                text='Retourner au jeu', 
+                command=lambda: self.switch_panel('main'),
+                fg_color="#52796f", hover_color="#3d5a45"
+            )
+            return_temp_btn.pack(pady=10)
+
 
     def selected_fish(self,fish_name):
 
