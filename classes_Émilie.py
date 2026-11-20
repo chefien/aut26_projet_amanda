@@ -20,6 +20,9 @@ class User():
         #contiendra tout ce qui sera attrappé
         self.inventory = []
 
+        #argent du joueur
+        self.money = 0
+
         #seront mis à jour lors de chaque prise
         self.nbFish = 0
         self.nbTrash = 0
@@ -43,8 +46,8 @@ class User():
     def setUserNbTrash(self, nbTrash):
         self.nbTrash = nbTrash
 
-    def setUserNbCatsh(self, nbCatch):
-            self.nbCatsh = nbCatch
+    def setUserNbCatch(self, nbCatch):
+            self.nbCatch = nbCatch
 
 
     #getters
@@ -81,17 +84,11 @@ class User():
     #met à jour le niveau avec une condition
     #si la condition est remplie on change le niveau et on retourne vrai, sinon on retourne faux 
     def isLeveledUp(self):
-
-        #la condition est que le nombre total de poissons attrappés doit être supérieur ou 
-        #égal au niveau actuel + (niveau + niveau-1 + niveau-2 + ... + 1) * 2
-        #par exemple:
-        #niveau de l'utilisateur:                 0       1       2       3       4       5       6       7       8
-        #total nécessaire pour changer de niveau:     1       3       8       15      24      35      48      53
-        #différence avec le niveau précédent:        1       2       5       7       9       11      13      15
-        if self.nbFish >= (self.level + (sum(range(1, self.level+1))) * 2):
+        leveled_up = False
+        while self.nbFish >= max(1, self.level + (sum(range(1, self.level + 1))) * 2):
             self.level += 1
-            return True
-        return False
+            leveled_up = True
+        return leveled_up
 
 
 
@@ -102,8 +99,11 @@ class Catch():
     #doit être créé avant la pêche car le temps d'attente, le temps de pêche et le nombre de clics pour la pêche sont fait ici
     def __init__(self, data):
 
-        #on veut un poisson/déchet au hasard
-        self.name = random.choice(data.getAllNamesList())
+        #on choisit la rareté du catch, et ensuite on choisis le catch ayant la meme rareté
+        rarity = random.choices(["common", "uncommon", "rare", "epic", "legendary"], weights=[60, 22, 10, 5, 3])[0]
+        catchs_with_rarity = data.dataFrame[data.dataFrame['rarity']==rarity]['name'].tolist()
+
+        self.name = random.choice(catchs_with_rarity)
 
         #pour les poissons
         if self.name in data.getFishNameList():
@@ -235,7 +235,7 @@ class Catch():
         self.timeFishing = timeFishing
 
     def setNbClicks(self, nbClicks):
-        self.getNbClicks = nbClicks
+        self.clicks = nbClicks
 
 
         
@@ -295,6 +295,9 @@ class Timer():
         #correspond au moment où le timer sera considéré comme terminé
         self.end = time.time() + self.seconds
 
+        #afin de pouvoir annuler le after
+        self.after_id = None
+
 
     #timer avec affichage du compte-à-rebours
     def updateTimerWithPrint(self):
@@ -316,16 +319,15 @@ class Timer():
             self.label.configure(text=f"{secondsLeft:02d}.{millisecondsLeft:02d} sec")
                                 
             #rafraîchir toutes les 10 ms pour que le défilement soit fluide
-            self.master.after(10, self.updateTimerWithPrint)
+            self.after_id = self.master.after(10, self.updateTimerWithPrint)
             
 
         #si c'est terminé
         else:
-
-            #change la légende 
-            self.label.configure(text="C'est fini !")
+            if self.label is not None and self.label.winfo_exists():
+                self.label.configure(text="00.00 sec")
             self.isFinished = True
-            self.master.after(3*1000, self.autoDestruct)
+            self.after_id = self.master.after(3000, self.autoDestruct)
 
             
     #timer sans affichage du compte-à-rebours
@@ -336,7 +338,7 @@ class Timer():
         if not self.isFinished and currentTime < self.end:
 
             #puisqu'on ne l'affiche pas, il n'est pas nécessaire de raffraichir aussi souvent        
-            self.master.after(50, self.updateTimerWithPrint)
+            self.master.after(50, self.updatetimerWithoutPrint)
         
         else:
             self.isFinished = True
@@ -348,12 +350,19 @@ class Timer():
 
     #détruit la légende
     def autoDestruct(self):
-        self.label.destroy()
+        if self.after_id is not None:
+            self.master.after_cancel(self.after_id)
+            self.after_id = None
+        if self.label is not None and self.label.winfo_exists():
+            self.label.destroy()
 
     #met la légende à 00 si la légende a déjà été créé et qu'il existe encore
     def stop(self):
         self.isFinished = True
+        if self.after_id is not None:
+            self.master.after_cancel(self.after_id)
+            self.after_id = None
         if self.label is not None and self.label.winfo_exists():
-            self.label.configure(text="00 sec")
-
+            self.label.configure(text="00.00 sec")
+            self.after_id = self.master.after(3000, self.autoDestruct)
 

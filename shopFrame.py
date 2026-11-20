@@ -5,7 +5,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 class shopFrame(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, fg_color="#9fb498", corner_radius=0)
-        self.master_app = master
+        self.master_app = master.master #MainApp (.user et .data)
+        self.game_screen = master
 
         #### (Vente | Achats | Comparaison) ###
 
@@ -47,6 +48,7 @@ class shopFrame(ctk.CTkFrame):
         # detruit ce qui se trouve dans le left container
         for widget in self.left_view_container.winfo_children():
             widget.destroy()
+        plt.close('all')
 
         if tab_name == "vente":
             self.create_vente_view()
@@ -165,6 +167,7 @@ class shopFrame(ctk.CTkFrame):
         # A FAIRE: image du vendeur
         self.vendor_img_frame = ctk.CTkFrame(right_panel, fg_color="#2b2b2b", width=180, height=180, corner_radius=0)
         self.vendor_img_frame.pack(pady=5)
+        self.vendor_img_frame.pack_propagate(False)
         
         vendor_placeholder = ctk.CTkLabel(self.vendor_img_frame, text="[ Image Vendor TO DO ]", text_color="#ffffff")
         vendor_placeholder.pack(expand=True)
@@ -190,3 +193,19 @@ class shopFrame(ctk.CTkFrame):
 
     def shopScreen(self):
         return self
+
+    def pricePerCatch(self, catch):
+        factor = ((catch.weight / (catch.weight + 2.0)) + (catch.size / (catch.size + 40.0)))/2
+        base_price = 8.0+(4*factor) #entre 8 et 12$
+
+        return round(base_price*self.getRarityMult(catch.rarity),2)
+
+    def getRarityMult(self, rarity):
+        temp_dict_rarity_mult = {
+            "common": 1.0,
+            "uncommon": 1.5,
+            "rare": 2.5,
+            "epic": 4.5,
+            "legendary": 7
+        }
+        return temp_dict_rarity_mult[rarity]

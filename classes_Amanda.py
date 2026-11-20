@@ -89,8 +89,9 @@ class TitleScreen(ctk.CTkFrame):
         path = ctk.filedialog.askopenfilename(initialdir="saves",filetypes=[("Fichiers CSV", "*.csv")])
         if path:
             saving = SavingSystem(self.master.user, path, self.master.data)
-            saving.loadingFromCsv(path)
-            self.master.show_frame(GameScreen)
+            if saving.loadingFromCsv(path):
+                saving.loadingFromCsv(path)
+                self.master.show_frame(GameScreen)
 
     def credit_frame(self):
         self.master.show_frame(CreditScreen)
@@ -100,6 +101,8 @@ class TitleScreen(ctk.CTkFrame):
 class newGameScreen(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master)
+
+
         self.configure(fg_color="#9fb498") 
 
         self.card = ctk.CTkFrame(self, fg_color="#dee6ed", corner_radius=15, width=500)
@@ -141,11 +144,14 @@ class newGameScreen(ctk.CTkFrame):
 
     def on_next(self):
         name = self.entry.get().strip()
+        
         if name == "":
             self.label.configure(text = 'Veuillez entrer un nom valide !', text_color="#b12626")
         else:
+            self.master.user = User()
             self.master.user.setUserName(name)
             self.master.show_frame(GameScreen)
+            
 
 class GameScreen(ctk.CTkFrame):
     def __init__(self, master):
@@ -187,10 +193,17 @@ class GameScreen(ctk.CTkFrame):
        self.load_btn = ctk.CTkButton(self.top_menu, text = 'Charger', command = self.on_load,fg_color="#52796f", hover_color="#3d5a45", corner_radius=8)
        self.load_btn.pack(padx = 10, side = 'left')
 
+      #Bouton Jeu
+       self.game_btn = ctk.CTkButton(self.top_menu, 
+                                      text = 'Jeu', 
+                                      command = self.on_return_game,
+                                      fg_color="#55B953", 
+                                      hover_color="#479c5a", 
+                                      corner_radius=8, 
+                                      text_color="#100f0f",
+                                      font = ("arial", 15, 'bold'))
        
-       #Bouton Stats
-       self.stats_btn = ctk.CTkButton(self.top_menu, text = 'Statistiques du jeu', command = self.on_stats,fg_color="#5297A8", hover_color="#3773a3", corner_radius=8)
-       self.stats_btn.pack(padx = 10, side = 'left')
+       self.game_btn.pack(padx = 5, side = 'left') 
 
        """
        NOUVEAUTÉ: BOUTON SHOP
@@ -204,6 +217,10 @@ class GameScreen(ctk.CTkFrame):
                                      corner_radius=8,
                                      font = ("arial", 15, 'bold'))
        self.shop_btn.pack(padx = 10, side = 'left')
+
+       #Bouton Stats
+       self.stats_btn = ctk.CTkButton(self.top_menu, text = 'Statistiques du jeu', command = self.on_stats,fg_color="#5297A8", hover_color="#3773a3", corner_radius=8)
+       self.stats_btn.pack(padx = 10, side = 'left')
 
        #Bouton retour
        self.back_btn = ctk.CTkButton(self.top_menu, text = 'Retourner au menu principal', command = self.on_return,fg_color="#52796f", hover_color="#3d5a45", corner_radius=8)
@@ -304,7 +321,7 @@ class GameScreen(ctk.CTkFrame):
         self.header_frame.pack(fill = 'both', pady = 10, padx = 15)
         environment_name_label = ctk.CTkLabel(self.header_frame, 
                                     text= "Étang de pêche", 
-                                    font=('ariel', 15, 'bold'))
+                                    font=('arial', 15, 'bold'))
         environment_name_label.pack(padx = 5, pady = 5,side = 'left')
         
 
@@ -347,6 +364,9 @@ class GameScreen(ctk.CTkFrame):
                               ipady = 10)
         self.fishing_timer = None
 
+        self.reset_job = None
+        self.wait_job = None
+
         
         
 
@@ -370,6 +390,7 @@ class GameScreen(ctk.CTkFrame):
                                              border_width=2,
                                              corner_radius=0)
         self.frame_fish_image.pack(pady = 5)
+        self.frame_fish_image.pack_propagate(False)
 
         fish_image = ImageConfig(r"assets/NoSelection.jpg",r"assets/NoSelection.jpg", 150,150)
         self.label_fish_image = ctk.CTkLabel(self.frame_fish_image, 
@@ -469,13 +490,28 @@ class GameScreen(ctk.CTkFrame):
         self.user_name_label.configure(text = self.master.user.getUserName())
         self.user_level_label.configure(text = f'Niveau : {self.master.user.getUserLevel()}')
         self.user_fish_label.configure(text = f'Poissons : {self.master.user.getUserNbFish()}')
+        ##TODO: ARGENT
 
         # 2.revele les poissons
-        for item in self.master.user.inventory:
-            if item.isFish and item.name in self.gallery_dict:
-                path = f"assets/{item.name}.png"
-                img = ImageConfig(path, path, 100, 100)
-                self.gallery_dict[item.name].configure(image = img.getImage())
+        caught_names = {catch.name for catch in self.master.user.inventory if catch.isFish}
+        for fish_name, btn in self.gallery_dict.items():
+          path = f"assets/{fish_name}.png"
+          if fish_name in caught_names:
+              img = ImageConfig(path, path, 100, 100).getImage()
+          else:
+              dark_img = ImageEnhance.Brightness(Image.open(path)).enhance(0.15)
+              img = ctk.CTkImage(light_image=dark_img, dark_image=dark_img, size=(100, 100))
+          btn.configure(image=img, border_width=0)
+
+        self.current_selected_name = None
+        self.label_fish_name.configure(text="Aucun")
+        self.label_rarity.configure(text="N/A")
+        self.label_fish_desc.configure(text="Aucun poisson de sélectionné!")
+        no_sel = ImageConfig(r"assets/NoSelection.jpg", r"assets/NoSelection.jpg", 150, 150)
+        self.label_fish_image.configure(image=no_sel.getImage())
+        for widget in self.inventory_frame_scroll.winfo_children():
+            widget.destroy()
+                    
 
     def on_options(self):
         print("Bouton options cliqué")
@@ -494,9 +530,12 @@ class GameScreen(ctk.CTkFrame):
         #arrete le timer s'il roulait encore
         if self.fishing_timer is not None:
             self.fishing_timer.stop()
-        if hasattr(self, 'escape_job'):
-            self.after_cancel(self.escape_job)
-
+        #cancel tous les after    
+        for job_attr in ('wait_job', 'escape_job', 'reset_job'):
+          job = getattr(self, job_attr, None)
+          if job is not None:
+              self.after_cancel(job)
+              setattr(self, job_attr, None)
         # Revient à l'écran titre
         self.master.show_frame(TitleScreen)
 
@@ -526,30 +565,11 @@ class GameScreen(ctk.CTkFrame):
         elif target_name == 'stats':
             self.stats_container = ctk.CTkFrame(self, fg_color="#9fb498")
             self.stats_container.pack(expand=True, fill="both", padx=10, pady=5)
-            
-            # temp on ajoute un bouton retour dans le container
-            return_temp_btn = ctk.CTkButton(
-                self.stats_container, 
-                text='Retourner au jeu', 
-                command=lambda: self.switch_panel('main'),
-                fg_color="#52796f", hover_color="#3d5a45"
-            )
-            return_temp_btn.pack(pady=10)
             self.create_stats_panel()
 
         elif target_name == 'shop':
             self.shop_container = shopFrame(self)
             self.shop_container.pack(expand=True, fill="both", padx=10, pady=5)
-
-
-           # temp on ajoute un bouton retour dans le container
-            return_temp_btn = ctk.CTkButton(
-                self.shop_container, 
-                text='Retourner au jeu', 
-                command=lambda: self.switch_panel('main'),
-                fg_color="#52796f", hover_color="#3d5a45"
-            )
-            return_temp_btn.pack(pady=10)
 
 
     def selected_fish(self,fish_name):
@@ -625,7 +645,6 @@ class GameScreen(ctk.CTkFrame):
                     label.pack(pady = 5, padx = 10, anchor = 'w')
 
     def on_fishing(self):
-        #je n'ai pas pu implémenter entièrement fishing de khadija puisqu'elle n'est pas completement fonctionnelle et la remise est bientot
         if self.fishing_timer != None:
             self.fishing_timer.autoDestruct()
         self.fishing_timer = None
@@ -646,7 +665,7 @@ class GameScreen(ctk.CTkFrame):
         self.clicks_left = self.clicks_total
 
         self.fish_button.configure(text = "Patientez...", state = 'disabled')
-        self.after(wait_time, self.start_bite)
+        self.wait_job = self.after(wait_time, self.start_bite)
 
 
     def start_bite(self):
@@ -658,6 +677,8 @@ class GameScreen(ctk.CTkFrame):
         self.fishing_timer = Timer(self.header_frame, sec_to_catch)
         self.fishing_timer.updateTimerWithPrint()
         self.escape_job = self.after(sec_to_catch * 1000, self.on_escaped)
+        
+        
 
         self.fish_button.configure(
             text = "Ça mord! Cliquez vite!", 
@@ -698,12 +719,12 @@ class GameScreen(ctk.CTkFrame):
                 self.show_catched_fish()
             else:
                 self.fish_button.configure(text = f"Déchet repêché...\n{self.current_catch.name}", fg_color="#949A31")
-            self.after(3000, self.normal_fish_button)
+            self.reset_job = self.after(3000, self.normal_fish_button)
 
     def on_escaped(self):
         if self.clicks_left > 0:
             self.fish_button.configure(text = "Le poisson s'est échappé...", state = 'disabled')
-            self.after(3000, self.normal_fish_button)           
+            self.reset_job = self.after(3000, self.normal_fish_button)          
 
             
     def show_catched_fish(self):
@@ -722,7 +743,7 @@ class GameScreen(ctk.CTkFrame):
                                        text = '')
         show_fish_label.pack(anchor = 'center', padx = 5, pady = 5)
 
-        self.after(3*1000, show_fish_frame.place_forget) 
+        self.after(3*1000, show_fish_frame.destroy) 
 
             
     def normal_fish_button(self):

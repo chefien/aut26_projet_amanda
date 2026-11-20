@@ -1,11 +1,7 @@
 #classe de khadija: Data(), Fishing(), savingSystem(), csv files + folder for assetz, stats()
 import pandas as pd
-import random
 import customtkinter as ctk
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image  # cest une librairie qui manipule les images png, jpg etc
-from classes_Émilie import Timer
 
 
 
@@ -130,7 +126,7 @@ class SavingSystem():
                 df = pd.read_csv(file)
             except Exception as e:
                 print(e)
-                return
+                return False
 
             tempInv = []
             for i in range(len(df)):
@@ -155,8 +151,8 @@ class SavingSystem():
             nb_fish = sum(1 for item in tempInv if item.isFish)
             self.user.setUserNbFish(nb_fish)
             self.user.setUserNbTrash(len(tempInv) - nb_fish)
-            if hasattr(self.user, 'setUserNbCatsh'):
-                self.user.setUserNbCatsh(len(tempInv))
+            if hasattr(self.user, 'setUserNbCatch'):
+                self.user.setUserNbCatch(len(tempInv))
 
             #nom et niveau
             if len(df) > 0:
@@ -166,7 +162,7 @@ class SavingSystem():
                 self.user.setUserName(self.username)
                 self.user.setUserLevel(self.level)
 
-            return 'chargement du fichier'
+            return True
 
     def savingToFile(self):
     # si l'inventaire est vide, ligne placeholder pour garder le nom et le niveau
@@ -200,105 +196,6 @@ class SavingSystem():
         df = pd.DataFrame(data)
         df.to_csv(self.file, index = False)
         return 'sauvegardement du fichier'
-
-                
-class StatsPlot(ctk.CTkFrame):
-    
-    def __init__(self,master,user,x,y):
-        super().__init__(master)
-        self.fishCollected, self.trashCollected = self.filtrate(user)
-        self.all = len(user.getUserInventory())
-        self.canvas = self.ploting(x,y)
-
-    def filtrate(self,user):
-        inventory = user.getUserInventory()
-        trash = 0 
-        fish = 0
-        for item in inventory:
-            if item.getIsFish(): #redo the getters
-                fish += 1
-            else:
-                trash += 1 
-        return fish, trash
-
-    def ploting(self,x,y):
-        fishPercentage = (self.fishCollected / self.all) * 100
-        trashPercentage = (self.trashCollected / self.all) * 100
-        values = [fishPercentage,trashPercentage]
-        names = ["Nombre de poissons déja péché", "Nombre d'ordures déja péché"]
-
-        figure = Figure(figsize = (x,y), dpi = 100) #dpi cest la resolution et figsize cest la taille, figure is the blank space where the graph will be drawn
-        subplot = figure.add_subplot(111) #notre graph, add tells it to add space in the canvas for the plot, 111 its to say take the whole space
-    
-        subplot.pie(values, labels=names, autopct = "%1.0f%%")
-        subplot.set_title("Progrès de l'utilisateur")
-        canvas = FigureCanvasTkAgg(figure, master = self)
-        canvas.draw() #connects the empty space with the graph
-        return canvas
-        
-    def getGraph(self):
-        return self.canvas
-    def placeGraph(self,x,y):
-        self.canvas.get_tk_widget().pack(padx= x, pady= y)
-        
-    '''
-    cette classe va stocker les stats et en tirer de lobjet user. ainsi, elle gère la création du graphique
-    nb of fish collected
-    graph: circle to compare nb of fish and trash collected
-    
-    '''
-class Fishing(ctk.CTkFrame):
-    def __init__(self,master,catch):
-        super().__init__(master)
-        '''
-        one def for the attendez, one for the click one for the finish
-        '''
-        
-        self.catch = catch # needs to be randomised before so you do fish(random choice of fish)
-        self.clicks = None
-        self.timerPassed= Timer(self.master,self.catch.getTimeFishing())
-        self.timerPassed.updatetimerWithoutPrint()
-        self.timer = None
-        self.win = False
-        self.fishingActive = False
-        #updates the clicks and timer and prepares for stage 2 
-        self.waiting()
-        #stage 2 and forth will have to be manually done
-
-    def waiting(self):
-         # it defines the clicks and timer if the first timer finished
-        if self.timerPassed.getIsFinished():
-            self.clicks = self.catch.getNbClicks()
-            self.timer = Timer(self.master,self.catch.getTimeWaiting())
-            self.fishingActive = True
-        else: # if the first timer didnt finish it wait a bit and redo the waiting function
-            self.master.after(20,self.waiting)
-
-    def reducingClicks(self):
-        if self.fishingActive and self.clicks is not None:
-            self.clicks = self.clicks - 1
-        
-    def checkFinalStatus(self):
-        if self.timer.getIsFinished() == False and self.clicks == 0 and self.fishingActive:
-            return True
-        if self.timer.getIsFinished() == True and self.clicks != 0 and self.fishingActive:
-            return False
-
-    #getters
-    def getNbClicks(self):
-        return self.clicks
-    def getTimer(self):
-        return self.timer
-    def getWinStatus(self):
-        return self.win
-    def getCatch(self):
-        return self.catch
-    def getTimePassedFirstStage(self):
-        return self.timerPassed
-
-#setter
-    def setWinStatus(self, status):
-        self.win = status
         
 class ImageConfig():
     def __init__(self,fileLight,fileDark,x,y):
