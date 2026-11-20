@@ -80,6 +80,7 @@ class Data():
         return self.fishEncyclopedia[name] # retourne les stats du poissons (dans un dictionnaire)
     def getTrashSpecific(self,name):
         return self.trash[name] #retourne les stats du dechets dans un dictionnaire
+    
         
 class SavingSystem():
     def __init__(self, user,file,data):

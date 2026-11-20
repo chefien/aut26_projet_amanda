@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
 
 class shopFrame(ctk.CTkFrame):
     def __init__(self, master):
@@ -135,23 +136,91 @@ class shopFrame(ctk.CTkFrame):
         graph_title.pack(pady=(15, 5))
 
         # A FAIRE: graphique en ce moment vide
-        fig, ax = plt.subplots(figsize=(5, 4), facecolor="#dee6ed")
+        fig, ax = plt.subplots(figsize=(5, 4), facecolor="#dee6ed",)
         ax.set_facecolor("#f5f2eb")
         
-        # vide vide vide
+        self.create_graph()
+
         ax.set_ylabel("$")
-        ax.set_ylim(0, 100)
-        ax.axhline(20, color="#dddddd", linestyle="--", linewidth=0.8)
-        ax.axhline(40, color="#dddddd", linestyle="--", linewidth=0.8)
-        ax.axhline(60, color="#dddddd", linestyle="--", linewidth=0.8)
-        ax.axhline(80, color="#dddddd", linestyle="--", linewidth=0.8)
 
         plt.tight_layout()
+
+        plt.subplots_adjust(plt.subplots_adjust(left=0.05, bottom=0.3, top = 1))
 
         self.canvas = FigureCanvasTkAgg(fig, master=self.left_view_container)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(expand=True, fill="both", padx=15, pady=10)
+        
 
+
+    ##matplotlib graph##
+
+    def create_graph(self):
+        ##read file
+
+        #types de poissons
+        catch_list = self.master_app.data.getFishNameList()    
+        x = np.array(catch_list)
+
+        ##its going to go by order of the list
+        #loops for every elmeent of catch_list
+        #it looks for the weight and does the mean
+        #it looks for the rarity value
+        #calls pricePerCatch to get the price
+        #appends the list
+
+        #on veut le poids (en kg) au hasard dans la plage associée
+
+        average_price_list = list()
+        rarity_color_list = list()
+
+        rarities = {
+                "common": "#ea9898",
+                "uncommon": "#f6e15dff",
+                "rare": "#83d978",
+                "epic": "#82dce4",
+                "legendary": "#c064f5",
+                }
+
+        for catch_name in catch_list:
+            current_catch = self.master_app.data.getFishSpecific(catch_name)
+            current_catch_mean_weight = (current_catch["finishWeight"]+current_catch["startWeight"])/2.0
+            current_catch_mean_size = (current_catch["finishSize"]+current_catch["startSize"])/2.0
+            current_catch_rarity = current_catch["rarity"]
+            average_price_list.append(self.pricePerCatch(catchweight=current_catch_mean_weight, 
+                                                         catchsize= current_catch_mean_size, 
+                                                         rarity=current_catch_rarity))
+            
+            rarity_color_list.append(rarities[current_catch_rarity])
+        
+        #je créer des fausses bars afin de créer une legende custom
+        
+        for label, color in rarities.items():
+            plt.bar(0, 0, color=color, label=label)
+
+        plt.legend()    
+        
+        y = np.array(average_price_list)
+
+        plt.grid(axis = 'y',linewidth = "1.4", linestyle = 'dotted', zorder = 1) 
+        
+        bars = plt.bar(x, y, color=rarity_color_list, zorder=3)
+
+        plt.bar_label(
+            bars,         
+            padding=6, 
+            fmt='%.0f$',        
+            fontsize=9,         
+            color="#353433",
+        )
+        
+        plt.tick_params('x', rotation = 45, rotation_mode = 'xtick')
+
+        plt.ylim(0, max(y) * 1.12)  
+             
+        
+        
+    
     #######################################
     ####CONTAINER DE DROITE: LE VENDEUR####
     #######################################
@@ -194,11 +263,23 @@ class shopFrame(ctk.CTkFrame):
     def shopScreen(self):
         return self
 
-    def pricePerCatch(self, catch):
-        factor = ((catch.weight / (catch.weight + 2.0)) + (catch.size / (catch.size + 40.0)))/2
-        base_price = 8.0+(4*factor) #entre 8 et 12$
+    def pricePerCatch(self, catch = None, catchweight = None, catchsize = None, rarity = None):
 
-        return round(base_price*self.getRarityMult(catch.rarity),2)
+        if catch is not None:
+            factor = ((catch.weight / (catch.weight + 2.0)) + (catch.size / (catch.size + 40.0)))/2
+            base_price = 8.0+(4*factor) #entre 8 et 12$
+
+            return round(base_price*self.getRarityMult(catch.rarity),2)
+        
+        if catchsize is not None and catchweight is not None and rarity is not None:
+            factor = ((catchweight / (catchweight + 2.0)) + (catchsize / (catchsize + 40.0)))/2
+            base_price = 8.0+(4*factor) #entre 8 et 12$
+
+            return int(round(base_price*self.getRarityMult(rarity),2))
+
+        return 0
+        
+
 
     def getRarityMult(self, rarity):
         temp_dict_rarity_mult = {

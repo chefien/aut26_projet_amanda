@@ -61,6 +61,9 @@ class TitleScreen(ctk.CTkFrame):
         btn_font = ("arial", 13, "bold")
         btn_rad = 10
 
+        TEMP_btn = ctk.CTkButton(self.menu_card, text='QUICK PLAY', font=btn_font, width=btn_w, height=btn_h, corner_radius=btn_rad, fg_color="#3d5a45", hover_color="#2c4232", command=self.TEMP_on_quick_play)
+        TEMP_btn.pack(pady=5)
+        
         if self.master.user.getUserName() is not None:
             self.play_btn = ctk.CTkButton(self.menu_card, text='Continuer', font=btn_font, width=btn_w, height=btn_h, corner_radius=btn_rad, fg_color="#3d5a45", hover_color="#2c4232", command=self.on_play)
             self.play_btn.pack(pady=5)
@@ -79,6 +82,11 @@ class TitleScreen(ctk.CTkFrame):
 
         self.quit_btn = ctk.CTkButton(self.menu_card, text='Quitter', font=btn_font, width=btn_w, height=btn_h, corner_radius=btn_rad, fg_color="#8b3a3a", hover_color="#632525", command=self.master.on_closing)    
         self.quit_btn.pack(pady=(5, 25))
+
+    def TEMP_on_quick_play(self):
+        self.master.user = User()
+        self.master.user.setUserName("username")
+        self.master.show_frame(GameScreen)
 
     def on_play(self):
         self.master.show_frame(GameScreen)
