@@ -6,15 +6,39 @@ from PIL import Image  # cest une librairie qui manipule les images png, jpg etc
 
 
 class Data():
-    def __init__(self,file):
+    def __init__(self,file, rarities_path = r"assets/rarities.csv"):
         self.file = str(file) #file lien/nom
         self.dataFrame = self.readFile() # cest le dataframe soit le tableau en version pandas
+
+        
+        self.fishEncyclopedia = {}
+        self.trash = {}
 
         if self.dataFrame is not None:
             #print(self.dataFrame)
             self.fishEncyclopedia = self.initFishDict() # executer direct apres init + cest un dictionnaire
             self.trash = self.initTrashList() #cest un dictionnaire
-            
+
+        self.rarities = self.load_rarities(rarities_path)
+
+
+
+    def load_rarities(self, filepath):
+        try:
+            df = pd.read_csv(filepath, delimiter=',')
+            df['rarity'] = df['rarity'].str.strip().str.lower()
+            return df.set_index('rarity').to_dict(orient='index')
+        except Exception as e:
+            print(e)
+            return {}
+
+    def getRarityMult(self, rarity):
+        return float(self.rarities[rarity]['multiplier'])
+    
+    def getRarityColor(self, rarity):
+        return str(self.rarities[rarity]['color'])             
+
+
         
     def readFile(self): #transporter le csv à un dataFrame
         try:
@@ -65,10 +89,10 @@ class Data():
         trashNames = [name for name in self.trash.keys()]
         return trashNames #retourne la liste de tous les noms des déchets
     def getAllNamesList(self):
-            all = []
-            all.extend(self.getTrashNameList())
-            all.extend(self.getFishNameList())
-            return all # retourne tous les noms des objets
+        all = []
+        all.extend(self.getTrashNameList())
+        all.extend(self.getFishNameList())
+        return all # retourne tous les noms des objets
     def getFishAllStatsList(self): #tres specifique:elle prend les stats du dict et les met dans une list exemple de l'affichage list(1,23,hello,1212)
         fishStats = [value for dictio in self.fishEncyclopedia.values() for value in dictio.values()] # rentre dans le premier dict, et puis dans le deuxiemeet extrait les stats du dict 2
         return fishStats # retourne TOUS les valeurs et les mets dans une liste
@@ -90,10 +114,10 @@ class SavingSystem():
         self.inventory = user.getUserInventory()
         self.username = user.getUserName()
         self.level = user.getUserLevel()
-        self.playedBefore = False
+        self.money = user.getUserMoney()
         self.file = file
         self.user = user
-        self.data = data
+        self.data = data        
         
         
         #on a besoin de getters et setters:
@@ -104,8 +128,8 @@ class SavingSystem():
         return self.username
     def getLevel(self):
         return self.level
-    def getPlayedBefore(self):
-        return self.playedBefore
+    def getMoney(self):
+        return self.money
     
         # setters so we can be able to save stuff
     
@@ -118,8 +142,9 @@ class SavingSystem():
     def setLevel(self, newLevel):
         self.level = newLevel
         self.user.setUserLevel(self.level)
-    def setPlayedBefore(self,status):
-        self.playedBefore = status
+    def setMoney(self, newMoney):
+        self.money = newMoney
+        self.user.setUserMoney(self.money)
 
     def loadingFromCsv(self, file):
             from classes_Émilie import Catch
@@ -159,9 +184,9 @@ class SavingSystem():
             if len(df) > 0:
                 self.username = str(df.loc[0,"Username"])
                 self.level = int(df.loc[0,"Level"])
-                self.playedBefore = df.loc[0,"Status"]
                 self.user.setUserName(self.username)
                 self.user.setUserLevel(self.level)
+                self.setMoney(float(df.loc[0,'Money']))
 
             return True
 
@@ -178,7 +203,7 @@ class SavingSystem():
                 "TimeFishing" : [0],
                 "Username" : [self.getUsername()],
                 "Level" : [self.getLevel()],
-                "Status" : [self.getPlayedBefore()]
+                "Money" : [self.getMoney()]
             }
         else:
             data = {
@@ -191,7 +216,7 @@ class SavingSystem():
                 "TimeFishing" : [i.getTimeFishing() for i in self.getInv()],
                 "Username" : [self.getUsername()] * len(self.getInv()),
                 "Level" : [self.getLevel()] * len(self.getInv()),
-                "Status" : [self.getPlayedBefore()] * len(self.getInv())
+                "Money" : [self.getMoney()]*len(self.getInv())
             }
 
         df = pd.DataFrame(data)
@@ -199,8 +224,11 @@ class SavingSystem():
         return 'sauvegardement du fichier'
         
 class ImageConfig():
-    def __init__(self,fileLight,fileDark,x,y):
-        
+    def __init__(self,fileLight,x,y,fileDark = None):
+        if fileDark is None:
+            fileDark = fileLight
+
+        self.myImg = None    
         temp = self.readFile(fileLight,fileDark)
         if temp is not None:
             self.fileLight,self.fileDark = temp
@@ -253,33 +281,19 @@ class GifImage(ctk.CTkFrame): #OPTIONELLE A REVOIR ET TESTER SI CA FONCTIONNE
         for i in range(frames):
             openImg.seek(i)
             img.append(ctk.CTkImage(light_image= openImg.copy(), size=(self.width, self.height)))
-        gifLabel = ctk.CTkLabel(self.master, text = "",width = self.width, height = self.height) # on revient avec ctk pour que ca soit compatible
-        gifLabel.place(x = self.x, y = self.y) # ou le placer
+        self.gifLabel = ctk.CTkLabel(self, text = "",width = self.width, height = self.height) # on revient avec ctk pour que ca soit compatible
+        self.gifLabel.pack()
                  
         def animation(count):
+
+            if not self.gifLabel.winfo_exists():
+                return
+
             newImg = img[count] # on commence avec ce frame precis
-            gifLabel.configure(image = newImg) # on prend le label et on le transforme en img
+            self.gifLabel.configure(image = newImg) # on prend le label et on le transforme en img
             count += 1 # prochaine img
 
             if count == frames: # si on arrive a la fin
                 count = 0 # on reset le compte pour qu'on puisse loop apres
             self.showAnim = self.master.after(self.wait, lambda: animation(count) ) # on attend self.wait de seconde avant de refaire la fonction: de plus lambda fais que la fct ne s'eexecute pas immediatement, et d'attendre jusqu'a ce que la condition soit satisfaite
         animation(0) # on fait demarer lanimation le zero cest le debut soit le count 0
-
-#app = ctk.CTk()
-#app.geometry("800x400")
-#img1 = ImageConfig("assets/mainMenu.jpeg","assets/mainMenu.jpeg",800,400)
-#my_label = ctk.CTkLabel(app, text="", image=img1.getImage())
-#my_label.pack(pady=10)
-#fishimg = GifImage(app,"assets/ocean.gif",150, 25, 100, 25, 50) # to fix the sizing
-#app.mainloop()
-
-
-
-
-
-#data1 = Data("assets/fishEncylopedia3.csv") #jsp honestly
-#print(data1.getFishEncyclopedia())
-
-#le lien du fichier ne fonctionne pas correctement, faut voir cest quoi le probleme avec le fichier
-#wshhh

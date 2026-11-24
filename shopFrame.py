@@ -11,24 +11,25 @@ class shopFrame(ctk.CTkFrame):
 
         #### (Vente | Achats | Comparaison) ###
 
-        self.nav_frame = ctk.CTkFrame(self, fg_color="#6e7a68", height=50, corner_radius=10)
-        self.nav_frame.pack(fill="x", padx=20, pady=(15, 10))
+        self.nav_frame = ctk.CTkFrame(self, fg_color="#9fb498", height=50, corner_radius=10)
+        self.nav_frame.pack(fill="x", padx=20, pady=(5,0))
 
         btn_font = ("arial", 14, "bold") #comme ca c'est pareil partout
         ##vente
         self.btn_vente = ctk.CTkButton(self.nav_frame, text="vente", font=btn_font, fg_color="#f1e9c8", text_color="#000000", hover_color="#e2dbc0", command=lambda: self.switch_shop_tab("vente"))
-        self.btn_vente.pack(side="left", padx=20, pady=10)
+        self.btn_vente.pack(side="left", padx=20)
         ##achat
         self.btn_shop = ctk.CTkButton(self.nav_frame, text="achats", font=btn_font, fg_color="#f1e9c8", text_color="#000000", hover_color="#e2dbc0", command=lambda: self.switch_shop_tab("achats"))
-        self.btn_shop.pack(side="left", padx=20, pady=10)
+        self.btn_shop.pack(side="left", padx=20)
+        self.card_shop_dict = dict()
         ##comparaison
         self.btn_comparaison = ctk.CTkButton(self.nav_frame, text="comparaison prix de ventes", font=btn_font, fg_color="#f1e9c8", text_color="#000000", hover_color="#e2dbc0", command=lambda: self.switch_shop_tab("comparaison"))
-        self.btn_comparaison.pack(side="left", padx=20, pady=10)
+        self.btn_comparaison.pack(side="left", padx=20)
 
 
         # le container pour tout
         self.content_container = ctk.CTkFrame(self, fg_color="#9fb498")
-        self.content_container.pack(expand=True, fill="both", padx=20, pady=10)
+        self.content_container.pack(expand=True, fill="both", padx=20, pady=(5,10))
 
         self.content_container.grid_columnconfigure(0, weight=3) # gauche
         self.content_container.grid_columnconfigure(1, weight=1) #droite (plus petit)
@@ -102,14 +103,14 @@ class shopFrame(ctk.CTkFrame):
         self.shop_scroll.grid_columnconfigure(1, weight=1)
 
         upgrade_data = [
-            ("Augmente le temps de pêche de 0.5s", "250$", "#bce1f5","#6c9fb8"),
-            ("Augmente le temps de pêche de 1s", "300$", "#a2e8c1","#63af85"),
-            ("Multiplie ton nombre de clicks par x2", "1000$", "#f3d179","#c4a046"),
-            ("Multiplie le prix de vente par x1.5", "1500$", "#f092e0","#bc5fac")
+            ("Augmente le temps de pêche de 0.5s", "250$", "#bce1f5","#6c9fb8",0),
+            ("Augmente le temps de pêche de 1s", "300$", "#a2e8c1","#63af85",1),
+            ("Multiplie ton nombre de clicks par x2", "1000$", "#f3d179","#c4a046",2),
+            ("Multiplie le prix de vente par x1.5", "1500$", "#f092e0","#bc5fac",3)
         ]
 
         row, col = 0, 0
-        for text, price, color, h_color in upgrade_data:
+        for text, price, color, h_color,id_num in upgrade_data:
             card_text = f"{text}\n\n{price}"
             
             card = ctk.CTkButton(
@@ -121,14 +122,26 @@ class shopFrame(ctk.CTkFrame):
                 hover_color=h_color, 
                 corner_radius=12,
                 height=110,
-                command=None
+                command = lambda i = id_num : self.selected_card(i)
             )
             card.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
+            self.card_shop_dict[id_num]=card
 
             col += 1
             if col > 1:
                 col = 0
                 row += 1
+
+    def selected_card(self, card_id):
+        #change color of the border to select the card
+        #change name of the btn to confirm purchase
+        #the btn calls confirm purchase
+        pass
+    def confirm_purchase(self):
+        #lowers the money
+        pass
+
+
 
     ##graphique
     def create_comparaison_view(self):
@@ -145,7 +158,7 @@ class shopFrame(ctk.CTkFrame):
 
         plt.tight_layout()
 
-        plt.subplots_adjust(plt.subplots_adjust(left=0.05, bottom=0.3, top = 1))
+        plt.subplots_adjust(left=0.05, bottom=0.3, top = 1)
 
         self.canvas = FigureCanvasTkAgg(fig, master=self.left_view_container)
         self.canvas.draw()
@@ -161,15 +174,6 @@ class shopFrame(ctk.CTkFrame):
         #types de poissons
         catch_list = self.master_app.data.getFishNameList()    
         x = np.array(catch_list)
-
-        ##its going to go by order of the list
-        #loops for every elmeent of catch_list
-        #it looks for the weight and does the mean
-        #it looks for the rarity value
-        #calls pricePerCatch to get the price
-        #appends the list
-
-        #on veut le poids (en kg) au hasard dans la plage associée
 
         average_price_list = list()
         rarity_color_list = list()
@@ -194,7 +198,7 @@ class shopFrame(ctk.CTkFrame):
             rarity_color_list.append(rarities[current_catch_rarity])
         
         #je créer des fausses bars afin de créer une legende custom
-        
+
         for label, color in rarities.items():
             plt.bar(0, 0, color=color, label=label)
 
@@ -230,7 +234,7 @@ class shopFrame(ctk.CTkFrame):
         right_panel.grid(row=0, column=1, sticky="nsew")
 
         # montre l'argent
-        self.money_label = ctk.CTkLabel(right_panel, text="Poissonnier\nargent: 250 $", font=("arial", 16, "bold"), text_color="#ffffff")
+        self.money_label = ctk.CTkLabel(right_panel, text=f"Poissonnier\nargent: {self.master_app.user.getUserMoney()} $", font=("arial", 16, "bold"), text_color="#ffffff")
         self.money_label.pack(pady=(20, 10))
 
         # A FAIRE: image du vendeur

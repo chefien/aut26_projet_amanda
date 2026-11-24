@@ -1,10 +1,5 @@
 # Classes de Amanda
-'''
-Le fonctionnement des écrans est plutôt simple:
-Il y a une classe qui s'occupe de l'écran principale et fait les changements de frame
-Chaque frame est une classe, ce qui simplifie la programmation et la rend claire.
 
-'''
 
 import customtkinter as ctk
 from classes_Émilie import User, Catch, Timer
@@ -26,7 +21,7 @@ class TitleScreen(ctk.CTkFrame):
         super().__init__(master)
 
         #image pour le background
-        bg = ImageConfig(r"assets/mainMenu.jpeg",r"assets/mainMenu.jpeg", self.master.window_width,self.master.window_height)
+        bg = ImageConfig(r"assets/mainMenu.jpeg", self.master.window_width,self.master.window_height)
 
         self.bg_label = ctk.CTkLabel(self, text = '', image = bg.getImage())
         self.bg_label.place(x = 0, y = 0, relwidth = 1, relheight = 1)
@@ -98,7 +93,6 @@ class TitleScreen(ctk.CTkFrame):
         if path:
             saving = SavingSystem(self.master.user, path, self.master.data)
             if saving.loadingFromCsv(path):
-                saving.loadingFromCsv(path)
                 self.master.show_frame(GameScreen)
 
     def credit_frame(self):
@@ -192,14 +186,15 @@ class GameScreen(ctk.CTkFrame):
        self.top_menu.pack(side="top", fill="x", padx=10, pady=(10, 5))
 
        ####Boutons#####
-
-        #Bouton sauvegarder
-       self.save_btn = ctk.CTkButton(self.top_menu, text = 'Sauvegarder', command = self.on_save,fg_color="#52796f", hover_color="#3d5a45", corner_radius=8)
-       self.save_btn.pack(padx = (0,10), side = 'left')
-
-        #Bouton Charger
-       self.load_btn = ctk.CTkButton(self.top_menu, text = 'Charger', command = self.on_load,fg_color="#52796f", hover_color="#3d5a45", corner_radius=8)
-       self.load_btn.pack(padx = 10, side = 'left')
+       self.option_menu = ctk.CTkOptionMenu(self.top_menu,
+                                        values = ['Sauvegarder','Charger','Retourner au menu principal'],
+                                        command = self.on_select,
+                                        fg_color="#52796f",
+                                        button_color="#3d5a45",
+                                        button_hover_color="#314837"
+                                        )
+       self.option_menu.pack(padx = (0,10), side = 'left')
+       self.option_menu.set('Options')
 
       #Bouton Jeu
        self.game_btn = ctk.CTkButton(self.top_menu, 
@@ -230,11 +225,15 @@ class GameScreen(ctk.CTkFrame):
        self.stats_btn = ctk.CTkButton(self.top_menu, text = 'Statistiques du jeu', command = self.on_stats,fg_color="#5297A8", hover_color="#3773a3", corner_radius=8)
        self.stats_btn.pack(padx = 10, side = 'left')
 
-       #Bouton retour
-       self.back_btn = ctk.CTkButton(self.top_menu, text = 'Retourner au menu principal', command = self.on_return,fg_color="#52796f", hover_color="#3d5a45", corner_radius=8)
-       self.back_btn.pack(padx = (10,0), side = 'right' )
+    def on_select(self, choice):
+        if choice == 'Sauvegarder':
+            self.on_save()
+        elif choice == 'Charger':
+            self.on_load()
+        elif choice == 'Retourner au menu principal':
+            self.on_return()
 
-
+        self.option_menu.set('Options')
        
        
     #####################################
@@ -246,18 +245,39 @@ class GameScreen(ctk.CTkFrame):
         self.left_panel.grid(row = 0, column = 0, sticky = 'nsew', pady = 10, padx = 10)
 
         #--------------------------------------------
-        #création du frame avec les info du joueur (nom, niveau, nmb de poissons)
-        self.user_info_frame = ctk.CTkFrame(self.left_panel,fg_color="#dee6ed", height = 50)
-        self.user_info_frame.pack(side = 'top', pady = (0,10), fill = 'x')
-        #montre le nom du joueur
-        self.user_name_label = ctk.CTkLabel(self.user_info_frame, text = self.master.user.getUserName(),font=("arial", 21, 'bold'), wraplength=200)
-        self.user_name_label.pack(pady = 10, side = 'left', padx = 20)
-        #montre le niveau du joueur
-        self.user_level_label = ctk.CTkLabel(self.user_info_frame, text = f'Niveau : {self.master.user.getUserLevel()}')
-        self.user_level_label.pack(pady = 10,anchor = 'e', padx = 20)
-        #montre le nmb de poissons attrape
-        self.user_fish_label = ctk.CTkLabel(self.user_info_frame, text = f'Poissons : {self.master.user.getUserNbFish()}')
-        self.user_fish_label.pack(pady = 10,anchor = 'e', padx = 20)
+        #création du frame avec les info du joueur (nom, niveau, nmb de poissons,argent)
+        self.user_info_frame = ctk.CTkFrame(self.left_panel, fg_color="#dee6ed")
+        self.user_info_frame.pack(side="top", pady=(0, 10), fill="x")
+
+        self.user_info_frame.grid_columnconfigure(0, weight=1)
+
+        # --- côté gauche ---
+        self.user_name_label = ctk.CTkLabel(
+            self.user_info_frame,
+            text=self.master.user.getUserName(),
+            font=("arial", 21, "bold"),
+            wraplength=200
+        )
+        self.user_name_label.grid(row=0, column=0, sticky="w", padx=20, pady=(10, 2))
+
+        self.user_money_label = ctk.CTkLabel(
+            self.user_info_frame,
+            text=f"{self.master.user.getUserMoney()}$"
+        )
+        self.user_money_label.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 10))
+
+        # --- côté droit ---
+        self.user_level_label = ctk.CTkLabel(
+            self.user_info_frame,
+            text=f"Niveau : {self.master.user.getUserLevel()}"
+        )
+        self.user_level_label.grid(row=0, column=1, sticky="e", padx=20, pady=(10, 2))
+
+        self.user_fish_label = ctk.CTkLabel(
+            self.user_info_frame,
+            text=f"Poissons : {self.master.user.getUserNbFish()}"
+        )
+        self.user_fish_label.grid(row=1, column=1, sticky="e", padx=20, pady=(0, 10))
 
         #--------------------------------------------
         ##création du frame avec la ''librairie'' de tous les poissons qui est scrollable
@@ -273,7 +293,7 @@ class GameScreen(ctk.CTkFrame):
         self.gallery_dict = dict()
         for i in self.master.data.getFishNameList():
             path = f"assets/{i}.png"
-            current_fish_image = ImageConfig(path,path,100,100)
+            current_fish_image = ImageConfig(path,100,100)
             current_button = ctk.CTkButton(self.gallery_frame_scroll,
                                            image=current_fish_image.getImage(),
                                              command = lambda i=i: self.selected_fish(i),
@@ -338,7 +358,7 @@ class GameScreen(ctk.CTkFrame):
         #environment_gif = GifImage(self.center_panel,"assets/ocean.gif", 100, 100, 5)
         #environment_gif.pack(pady = 5, padx = 5)
         path = r"assets/Enviro.png"
-        environment_img = ImageConfig(path,path,360,360)
+        environment_img = ImageConfig(path,360,360)
         self.environment_label = ctk.CTkLabel(self.center_panel, image=environment_img.getImage(),text = '')
         self.environment_label.pack()
         ##bar de progression
@@ -400,7 +420,7 @@ class GameScreen(ctk.CTkFrame):
         self.frame_fish_image.pack(pady = 5)
         self.frame_fish_image.pack_propagate(False)
 
-        fish_image = ImageConfig(r"assets/NoSelection.jpg",r"assets/NoSelection.jpg", 150,150)
+        fish_image = ImageConfig(r"assets/NoSelection.jpg", 150,150)
         self.label_fish_image = ctk.CTkLabel(self.frame_fish_image, 
                                              image=fish_image.getImage(),
                                              text = '')
@@ -498,14 +518,14 @@ class GameScreen(ctk.CTkFrame):
         self.user_name_label.configure(text = self.master.user.getUserName())
         self.user_level_label.configure(text = f'Niveau : {self.master.user.getUserLevel()}')
         self.user_fish_label.configure(text = f'Poissons : {self.master.user.getUserNbFish()}')
-        ##TODO: ARGENT
+        self.user_money_label.configure(text = f"{self.master.user.getUserMoney()}$")
 
         # 2.revele les poissons
         caught_names = {catch.name for catch in self.master.user.inventory if catch.isFish}
         for fish_name, btn in self.gallery_dict.items():
           path = f"assets/{fish_name}.png"
           if fish_name in caught_names:
-              img = ImageConfig(path, path, 100, 100).getImage()
+              img = ImageConfig(path, 100, 100).getImage()
           else:
               dark_img = ImageEnhance.Brightness(Image.open(path)).enhance(0.15)
               img = ctk.CTkImage(light_image=dark_img, dark_image=dark_img, size=(100, 100))
@@ -515,7 +535,7 @@ class GameScreen(ctk.CTkFrame):
         self.label_fish_name.configure(text="Aucun")
         self.label_rarity.configure(text="N/A")
         self.label_fish_desc.configure(text="Aucun poisson de sélectionné!")
-        no_sel = ImageConfig(r"assets/NoSelection.jpg", r"assets/NoSelection.jpg", 150, 150)
+        no_sel = ImageConfig(r"assets/NoSelection.jpg", 150, 150)
         self.label_fish_image.configure(image=no_sel.getImage())
         for widget in self.inventory_frame_scroll.winfo_children():
             widget.destroy()
@@ -569,6 +589,7 @@ class GameScreen(ctk.CTkFrame):
         # ouvre le container demandé
         if target_name == 'main':
             self.main_container.pack(expand=True, fill="both", padx=10, pady=5)
+            self.updateInfo()
 
         elif target_name == 'stats':
             self.stats_container = ctk.CTkFrame(self, fg_color="#9fb498")
@@ -632,7 +653,7 @@ class GameScreen(ctk.CTkFrame):
             self.label_rarity.configure(text = list_fish[-1])
 
             path = f"assets/{fish_name}.png"
-            fish_image = ImageConfig(path,path, 150,150)
+            fish_image = ImageConfig(path, 150,150)
             self.label_fish_image.configure(image = fish_image.getImage())
 
     def modify_inventory_list(self, fish_name):
@@ -712,7 +733,7 @@ class GameScreen(ctk.CTkFrame):
 
             if self.current_catch.isFish:
                 path = f"assets/{self.current_catch.name}.png"
-                current_fish_image = ImageConfig(path, path, 100, 100)
+                current_fish_image = ImageConfig(path, 100, 100)
                 self.gallery_dict[self.current_catch.name].configure(image = current_fish_image.getImage())
 
             self.user_fish_label.configure(text = f'Poissons : {self.master.user.getUserNbFish()}')
@@ -745,7 +766,7 @@ class GameScreen(ctk.CTkFrame):
         show_fish_frame.place(relx=0.5, rely=0.42, anchor='center')
 
         path = f"assets/{self.current_catch.name}.png"
-        current_fish_image = ImageConfig(path,path,200,200) 
+        current_fish_image = ImageConfig(path,200,200) 
         show_fish_label = ctk.CTkLabel(show_fish_frame,
                                        image = current_fish_image.getImage(),
                                        text = '')
@@ -761,9 +782,12 @@ class GameScreen(ctk.CTkFrame):
                                     state = 'normal',
                                     fg_color="#dee6ed")
         self.reel_bar.set(0)
-        
 
-                    
+    def updateInfo(self):
+        self.user_money_label.configure(text = f"{self.master.user.getUserMoney()}$")
+        self.user_fish_label.configure(text = f"Poissons : {self.master.user.getUserNbFish()}")
+
+        
                 
 
     
@@ -929,10 +953,4 @@ class MainApp(ctk.CTk):
         sys.exit(0)
 
 
-        
-
-'''    ##temp
-app = MainApp()
-if __name__ == "__main__":
-    app.mainloop()
-'''
+    

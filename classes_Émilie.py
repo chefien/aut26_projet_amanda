@@ -48,6 +48,9 @@ class User():
 
     def setUserNbCatch(self, nbCatch):
             self.nbCatch = nbCatch
+            
+    def setUserMoney(self,earnings):
+        self.money=earnings
 
 
     #getters
@@ -68,6 +71,9 @@ class User():
 
     def getUserNbCatch(self):
         return self.nbCatch
+    
+    def getUserMoney(self):
+        return self.money
 
 
     #met à jour l'inventaire, le total de poissons, de déchets et les deux ensemble
