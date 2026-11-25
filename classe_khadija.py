@@ -6,7 +6,7 @@ from PIL import Image  # cest une librairie qui manipule les images png, jpg etc
 
 
 class Data():
-    def __init__(self,file, rarities_path = r"assets/rarities.csv"):
+    def __init__(self,file, rarities_path = r"assets/rarities.csv", upgrades_path = r"assets/upgrades.csv"):
         self.file = str(file) #file lien/nom
         self.dataFrame = self.readFile() # cest le dataframe soit le tableau en version pandas
 
@@ -20,6 +20,7 @@ class Data():
             self.trash = self.initTrashList() #cest un dictionnaire
 
         self.rarities = self.load_rarities(rarities_path)
+        self.upgrades = self.load_upgrades(upgrades_path)
 
 
 
@@ -36,8 +37,30 @@ class Data():
         return float(self.rarities[rarity]['multiplier'])
     
     def getRarityColor(self, rarity):
-        return str(self.rarities[rarity]['color'])             
+        return str(self.rarities[rarity]['color'])  
 
+    def getRarityList(self):
+        return list(self.rarities.keys())
+
+    def getRarityWeights(self):
+        return [float(self.rarities[r]['weight']) for r in self.rarities]
+
+    def getRarityTimeWaiting(self, rarity):
+        return int(self.rarities[rarity.strip().lower()]['timeWaiting'])
+
+    def getRarityClicks(self, rarity):
+        return int(self.rarities[rarity.strip().lower()]['clicks'])          
+
+    def load_upgrades(self, filepath):
+        try:
+            df = pd.read_csv(filepath, delimiter=',')
+            return df.set_index('id').to_dict(orient='index')
+        except Exception as e:
+            print(e)
+            return {}
+
+    def getUpgrades(self):
+        return self.upgrades
 
         
     def readFile(self): #transporter le csv à un dataFrame
@@ -112,6 +135,7 @@ class SavingSystem():
      # à revoir faut mettre tous les attributs to save! (for loading/ pour chaque partie)
         #on save ca pour la premiere fois
         self.inventory = user.getUserInventory()
+        self.total_inventory = user.getUserTotalInventory()
         self.username = user.getUserName()
         self.level = user.getUserLevel()
         self.money = user.getUserMoney()
@@ -124,6 +148,8 @@ class SavingSystem():
         # getters so we can be able to read the info after
     def getInv(self):
         return self.inventory
+    def getTotalInv(self):
+        return self.total_inventory
     def getUsername(self):
         return self.username
     def getLevel(self):
@@ -136,6 +162,9 @@ class SavingSystem():
     def setInv(self,newInventory):
         self.inventory = newInventory
         self.user.setUserInventory(self.inventory)
+    def setTotalInv(self, newInventory):
+        self.total_inventory = newInventory
+        self.user.setUserTotalInventory(self.total_inventory)
     def setUsername(self, newUsername):
         self.username = newUsername
         self.user.setUserName(self.username)
@@ -155,6 +184,7 @@ class SavingSystem():
                 return False
 
             tempInv = []
+            tempTotalInv = []
             for i in range(len(df)):
                 # si c'était une partie avec 0 catch
                 if df.loc[i, "Name"] == "None":
@@ -168,17 +198,26 @@ class SavingSystem():
                 catchTemp.setDescription(df.loc[i,"Description"])
                 catchTemp.setRarity(df.loc[i,"Rarity"])
                 catchTemp.setTimeFishing(df.loc[i,"TimeFishing"])
-                tempInv.append(catchTemp)
+                catchTemp.setIsSold(bool(df.loc[i, "IsSold"]))
 
-            self.inventory = tempInv      
+                if df.loc[i, 'IsSold'] == False:
+                    tempInv.append(catchTemp)
+
+                tempTotalInv.append(catchTemp)
+
+
+            self.inventory = tempInv 
+            self.total_inventory = tempTotalInv
+
             self.user.setUserInventory(self.inventory)
+            self.user.setUserTotalInventory(self.total_inventory)
             
             # met à jour les compteurs de poissons et déchets
-            nb_fish = sum(1 for item in tempInv if item.isFish)
+            nb_fish = sum(1 for item in tempTotalInv if item.isFish)
             self.user.setUserNbFish(nb_fish)
-            self.user.setUserNbTrash(len(tempInv) - nb_fish)
+            self.user.setUserNbTrash(len(tempTotalInv) - nb_fish)
             if hasattr(self.user, 'setUserNbCatch'):
-                self.user.setUserNbCatch(len(tempInv))
+                self.user.setUserNbCatch(len(tempTotalInv))
 
             #nom et niveau
             if len(df) > 0:
@@ -188,11 +227,33 @@ class SavingSystem():
                 self.user.setUserLevel(self.level)
                 self.setMoney(float(df.loc[0,'Money']))
 
+            # chargement des upgrades
+            upgrades_file = file.replace(".csv", "_upgrades.txt")
+            try:
+                df_up = pd.read_csv(upgrades_file)
+                temp_purchased = []
+                for i in range(len(df_up)):
+                    if int(df_up.loc[i, "Purchased"]) == -1:
+                        continue
+                    temp_purchased.append(int(df_up.loc[i, "Purchased"]))
+
+                self.user.setPurchasedUpgrades(temp_purchased)
+                if len(df_up) > 0:
+                    self.user.setBonusTime(float(df_up.loc[0, "BonusTime"]))
+                    self.user.setSellMult(float(df_up.loc[0, "SellMult"]))
+                    self.user.setClickMult(int(df_up.loc[0, "ClickMult"]))
+            except Exception as e:
+                print(e)
+                self.user.setBonusTime(0.0)
+                self.user.setSellMult(1)
+                self.user.setClickMult(1)
+                self.user.setPurchasedUpgrades([])
+
             return True
 
     def savingToFile(self):
     # si l'inventaire est vide, ligne placeholder pour garder le nom et le niveau
-        if len(self.getInv()) == 0:
+        if len(self.getTotalInv()) == 0:
             data = {
                 "Name" : ["None"],
                 "Weight" : [0.0],
@@ -203,24 +264,49 @@ class SavingSystem():
                 "TimeFishing" : [0],
                 "Username" : [self.getUsername()],
                 "Level" : [self.getLevel()],
-                "Money" : [self.getMoney()]
+                "Money" : [self.getMoney()],
+                "IsSold" : [False]
             }
         else:
             data = {
-                "Name" : [i.getName() for i in self.getInv()],
-                "Weight" : [i.getWeight() for i in self.getInv()],
-                "Size" : [i.getSize() for i in self.getInv()],
-                "IsFish" : [i.getIsFish() for i in self.getInv()],
-                "Description" : [i.getDescription() for i in self.getInv()],
-                "Rarity" : [i.getRarity() for i in self.getInv()],
-                "TimeFishing" : [i.getTimeFishing() for i in self.getInv()],
-                "Username" : [self.getUsername()] * len(self.getInv()),
-                "Level" : [self.getLevel()] * len(self.getInv()),
-                "Money" : [self.getMoney()]*len(self.getInv())
+                "Name" : [i.getName() for i in self.getTotalInv()],
+                "Weight" : [i.getWeight() for i in self.getTotalInv()],
+                "Size" : [i.getSize() for i in self.getTotalInv()],
+                "IsFish" : [i.getIsFish() for i in self.getTotalInv()],
+                "Description" : [i.getDescription() for i in self.getTotalInv()],
+                "Rarity" : [i.getRarity() for i in self.getTotalInv()],
+                "TimeFishing" : [i.getTimeFishing() for i in self.getTotalInv()],
+                "Username" : [self.getUsername()] * len(self.getTotalInv()),
+                "Level" : [self.getLevel()] * len(self.getTotalInv()),
+                "Money" : [self.getMoney()]*len(self.getTotalInv()),
+                "IsSold" : [i.getIsSold() for i in self.getTotalInv()]
             }
 
         df = pd.DataFrame(data)
         df.to_csv(self.file, index = False)
+
+        #sauvegarde des upgrades dans un deuxième csv
+        upgrades_file = self.file.replace(".csv", "_upgrades.txt")
+        purchased = self.user.getPurchasedUpgrades()
+
+        if len(purchased) == 0:
+            upgrades_data = {
+                "BonusTime" : [self.user.getBonusTime()],
+                "SellMult" : [self.user.getSellMult()],
+                "ClickMult" : [self.user.getClickMult()],
+                "Purchased" : [-1]
+            }
+        else:
+            upgrades_data = {
+                "BonusTime" : [self.user.getBonusTime()] * len(purchased),
+                "SellMult" : [self.user.getSellMult()] * len(purchased),
+                "ClickMult" : [self.user.getClickMult()] * len(purchased),
+                "Purchased" : [i for i in purchased]
+            }
+
+        df_up = pd.DataFrame(upgrades_data)
+        df_up.to_csv(upgrades_file, index = False)
+
         return 'sauvegardement du fichier'
         
 class ImageConfig():
@@ -252,12 +338,10 @@ class ImageConfig():
         return self.myImg
 
 class GifImage(ctk.CTkFrame): #OPTIONELLE A REVOIR ET TESTER SI CA FONCTIONNE
-    def __init__(self,master, file, x, y, width, height, wait):
+    def __init__(self,master, file,width, height, wait):
         super().__init__(master)
         if self.checkFile(file) != None:
-            self.file = file # cest comme si jai fait au fond self.file= file
-            self.x = x
-            self.y = y 
+            self.file = file 
             self.width = width
             self.height = height
             self.wait = wait

@@ -232,6 +232,7 @@ class GameScreen(ctk.CTkFrame):
             self.on_load()
         elif choice == 'Retourner au menu principal':
             self.on_return()
+            return
 
         self.option_menu.set('Options')
        
@@ -262,7 +263,7 @@ class GameScreen(ctk.CTkFrame):
 
         self.user_money_label = ctk.CTkLabel(
             self.user_info_frame,
-            text=f"{self.master.user.getUserMoney()}$"
+            text=f"{self.master.user.getUserMoney()} $"
         )
         self.user_money_label.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 10))
 
@@ -308,7 +309,7 @@ class GameScreen(ctk.CTkFrame):
                                 row = current_row, 
                                 column = current_column)
             
-            if not any(catch.name == i for catch in self.master.user.inventory) :
+            if not any(catch.name == i for catch in self.master.user.getUserTotalInventory()) :
                 original_img = Image.open(path)
 
                 enhancer = ImageEnhance.Brightness(original_img)
@@ -451,7 +452,7 @@ class GameScreen(ctk.CTkFrame):
 
         #liste des poissons différents attrapés
         found_fishes = []
-        for x in self.master.user.inventory:
+        for x in self.master.user.getUserTotalInventory():
             if x.isFish and x.name not in found_fishes:
                 found_fishes.append(x.name)
 
@@ -501,6 +502,7 @@ class GameScreen(ctk.CTkFrame):
             saving.setUsername(self.master.user.getUserName())
             saving.setLevel(self.master.user.getUserLevel())
             saving.setInv(self.master.user.getUserInventory())
+            saving.setTotalInv(self.master.user.getUserTotalInventory())
             saving.savingToFile()
             print("Partie sauvegardée dans", path)
 
@@ -509,19 +511,20 @@ class GameScreen(ctk.CTkFrame):
                                               initialdir="saves")
         if path:
             saving = SavingSystem(self.master.user, path, self.master.data)
-            saving.loadingFromCsv(path)
-            self.refresh_after_load()
-            print("Partie chargée depuis", path)
+            
+            if saving.loadingFromCsv(path):
+                self.refresh_after_load()   
+                print("Partie chargée depuis", path)
 
     def refresh_after_load(self):
         #met a jour le ui
         self.user_name_label.configure(text = self.master.user.getUserName())
         self.user_level_label.configure(text = f'Niveau : {self.master.user.getUserLevel()}')
         self.user_fish_label.configure(text = f'Poissons : {self.master.user.getUserNbFish()}')
-        self.user_money_label.configure(text = f"{self.master.user.getUserMoney()}$")
+        self.user_money_label.configure(text = f"{self.master.user.getUserMoney()} $")
 
         # 2.revele les poissons
-        caught_names = {catch.name for catch in self.master.user.inventory if catch.isFish}
+        caught_names = {catch.name for catch in self.master.user.total_inventory if catch.isFish}
         for fish_name, btn in self.gallery_dict.items():
           path = f"assets/{fish_name}.png"
           if fish_name in caught_names:
@@ -539,6 +542,8 @@ class GameScreen(ctk.CTkFrame):
         self.label_fish_image.configure(image=no_sel.getImage())
         for widget in self.inventory_frame_scroll.winfo_children():
             widget.destroy()
+
+        self.switch_panel('main')
                     
 
     def on_options(self):
@@ -611,7 +616,7 @@ class GameScreen(ctk.CTkFrame):
             #ajouter une bordure verte
             self.gallery_dict[fish_name].configure(border_width = 5)
 
-            is_caught = any(catch.name == fish_name for catch in self.master.user.inventory)
+            is_caught = any(catch.name == fish_name for catch in self.master.user.total_inventory)
 
             if is_caught:
                 self.modify_desc_fish(fish_name)
@@ -699,13 +704,13 @@ class GameScreen(ctk.CTkFrame):
 
     def start_bite(self):
         #temps pour pêcher selon le catch
-        sec_to_catch = self.current_catch.getTimeFishing()
+        sec_to_catch = self.current_catch.getTimeFishing()+self.master.user.getBonusTime()
         if sec_to_catch <= 0:
             sec_to_catch = 10
 
         self.fishing_timer = Timer(self.header_frame, sec_to_catch)
         self.fishing_timer.updateTimerWithPrint()
-        self.escape_job = self.after(sec_to_catch * 1000, self.on_escaped)
+        self.escape_job = self.after(int(sec_to_catch*1000), self.on_escaped)
         
         
 
@@ -717,7 +722,7 @@ class GameScreen(ctk.CTkFrame):
 
 
     def on_reel_click(self):
-        self.clicks_left -= 1
+        self.clicks_left = max(0, self.clicks_left - self.master.user.getClickMult()) #si c'est negatif, ca devient 0
         self.fish_button.configure(text = f"({self.clicks_left} clics restants)")
         
         ratio = (self.clicks_total - self.clicks_left) / self.clicks_total
@@ -784,8 +789,11 @@ class GameScreen(ctk.CTkFrame):
         self.reel_bar.set(0)
 
     def updateInfo(self):
-        self.user_money_label.configure(text = f"{self.master.user.getUserMoney()}$")
+        self.user_money_label.configure(text = f"{self.master.user.getUserMoney()} $")
         self.user_fish_label.configure(text = f"Poissons : {self.master.user.getUserNbFish()}")
+
+        if self.current_selected_name is not None:
+            self.modify_inventory_list(self.current_selected_name)
 
         
                 

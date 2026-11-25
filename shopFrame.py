@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
+from classe_khadija import ImageConfig, GifImage
+
 class shopFrame(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, fg_color="#9fb498", corner_radius=0)
@@ -13,6 +15,8 @@ class shopFrame(ctk.CTkFrame):
 
         self.nav_frame = ctk.CTkFrame(self, fg_color="#9fb498", height=50, corner_radius=10)
         self.nav_frame.pack(fill="x", padx=20, pady=(5,0))
+
+        self.current_fishes_sale = []
 
         btn_font = ("arial", 14, "bold") #comme ca c'est pareil partout
         ##vente
@@ -43,7 +47,8 @@ class shopFrame(ctk.CTkFrame):
         self.create_right_panel()
 
         # la vue de defaut est celui de vente
-        self.switch_shop_tab("vente")
+
+        self.switch_shop_tab('vente')
 
 
     def switch_shop_tab(self, tab_name):
@@ -54,10 +59,29 @@ class shopFrame(ctk.CTkFrame):
 
         if tab_name == "vente":
             self.create_vente_view()
+
         elif tab_name == "achats":
             self.create_shop_view()
+
         elif tab_name == "comparaison":
             self.create_comparaison_view()
+
+        self.reset_vendor_ui(tab_name)
+
+    def reset_vendor_ui(self,tab_name):
+        self.current_fishes_sale = []
+        
+        if tab_name == "vente":
+            self.action_btn.pack(side="bottom", pady=25)
+            self.action_btn.configure(text="Vendre x0\n(0$)", command = None)
+
+        elif tab_name == "achats":
+            self.action_btn.pack(side="bottom", pady=25)
+            self.action_btn.configure(text="Acheter\n(0$)", command = None)
+        
+        elif tab_name == "comparaison":
+            self.action_btn.configure(command = None)            
+            self.action_btn.pack_forget()
 
 
     #############
@@ -72,22 +96,185 @@ class shopFrame(ctk.CTkFrame):
         self.inv_frame = ctk.CTkScrollableFrame(self.left_view_container, fg_color="#dee6ed")
         self.inv_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         
-        # A FAIRE: Implementer l'inventaire des poissons qui ont ete attrapé
-        placeholder_label = ctk.CTkLabel(self.inv_frame, text="[ Inventaire / Options de poissons ici ]", font=("arial", 12))
-        placeholder_label.pack(pady=20)
 
         # tous les poissons du poisson choisis
         self.selection_frame = ctk.CTkScrollableFrame(self.left_view_container, fg_color="#f5f2eb")
         self.selection_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         
-        sel_title = ctk.CTkLabel(self.selection_frame, 
+        self.sel_title = ctk.CTkLabel(self.selection_frame, 
                                  text="Aucun poisson de selectionné", 
                                  font=("arial", 16, "bold"),
-                                 wraplength=180,
-                                 justify = "left")
-        sel_title.pack(pady=10)
+                                 wraplength=180)
+        self.sel_title.pack(pady=10)
         
-        # A FAIRE: la selection du poisson
+        self.place_inventory_grid()
+    
+    def place_inventory_grid(self):
+        #nmb de poissons attrapés
+        #qui sont les poissons
+        #placer image bouton
+
+        ##dimensions image
+
+        height = 120
+        width = height
+
+        current_row = 0
+        current_column = 0
+
+        self.inventory_dict = dict()
+
+        seen_names = set()
+
+        for catch in self.master_app.user.getUserInventory():
+            name = catch.getName()
+            if name not in seen_names and catch.getIsFish():
+                seen_names.add(name)
+
+                path = f"assets/{name}.png"
+                current_fish_image = ImageConfig(path,height,width)
+                current_button = ctk.CTkButton(self.inv_frame,
+                                            image=current_fish_image.getImage(),
+                                                command = lambda n=name: self.selected_fish(n),
+                                                border_color ="#66ce7f", 
+                                                border_width=0,
+                                                text = '',
+                                                fg_color="#dee6ed",
+                                                height=height,width=width,
+                                                hover_color="#fcf8f8",
+                                                corner_radius=0)
+                current_button.grid(pady = 5,padx = 5,
+                                    row = current_row, 
+                                    column = current_column)
+                
+
+                self.inventory_dict[name] = current_button
+
+                if current_column == 0:
+                    current_column = 1
+                else:
+                    current_column = 0
+                    current_row +=1
+
+    def selected_fish(self, fish_name):
+        self.current_selected_name = fish_name
+        self.current_fishes_sale = [] #reset la liste quand on change de poissons
+
+        for btn in self.inventory_dict.values():
+            btn.configure(border_width = 0)
+        print(fish_name)
+        #ajouter une bordure verte
+        self.inventory_dict[fish_name].configure(border_width = 2)
+
+        #modifie le label de selection
+        self.sel_title.configure(text=fish_name)
+        self.show_list_selection(fish_name)
+        self.update_sale_button()
+
+    def show_list_selection(self,fish_name):
+        #nmb of fishes
+        self.selection_inv_dict = dict()
+
+        list_selection = [
+            f for f in self.master_app.user.getUserInventory()
+            if f.getName() == fish_name
+        ]
+
+        self.sel_title.configure(text = f'Sélection : {fish_name}')
+
+        for widget in self.selection_frame.winfo_children():
+            if widget != self.sel_title:
+                widget.destroy()
+
+        for i in list_selection:
+
+            if i.weight < 1.0:
+                text = f"• {i.size:.1f} cm, {int(i.weight * 1000)} g"
+            else:
+                text = f"• {i.size:.1f} cm, {i.weight:.2f} kg"
+        
+            button = ctk.CTkButton(self.selection_frame, 
+                                   fg_color="#e8e6dd", 
+                                   hover_color="#cbc7b6",
+                                   command = lambda i=i: self.add_selected_list_fish(i),
+                                   text= text,
+                                   text_color='black'
+                                   )
+            button.pack(padx = 5, pady = 5, fill = 'x')
+
+            self.selection_inv_dict[i] = button
+
+    def add_selected_list_fish(self, fish):
+        #change button to deselect
+        #add it to a self.list
+
+        self.selection_inv_dict[fish].configure(fg_color = "#cbc7b6", 
+                                                command = lambda i=fish: self.remove_selected_list_fish(i))
+        self.current_fishes_sale.append(fish)
+        self.update_sale_button()
+    
+    def remove_selected_list_fish(self,fish):
+        self.selection_inv_dict[fish].configure(fg_color="#e8e6dd", 
+                                                hover_color="#cbc7b6", 
+                                                command = lambda i=fish: self.add_selected_list_fish(i))
+        self.current_fishes_sale.remove(fish)
+        self.update_sale_button()
+
+    def confirm_sale(self):
+        #add money
+        #remove fishes from inventory
+
+        self.master_app.user.addUserMoney(self.get_sale_amount())
+
+        newInventory = [fish for fish in self.master_app.user.getUserInventory() if fish not in self.current_fishes_sale]
+
+        newTotalInventory = []
+        for sold in self.master_app.user.getUserTotalInventory():
+            if sold in self.current_fishes_sale:    
+                sold.setIsSold(True)
+            newTotalInventory.append(sold)
+        
+        self.current_fishes_sale = []
+        self.update_sale_button()
+        
+        self.master_app.user.setUserInventory(newInventory.copy())
+        self.master_app.user.setUserTotalInventory(newTotalInventory.copy())
+        self.reset_ui_after_buy()
+
+    
+
+    def get_sale_amount(self):
+        total = 0
+        for i in self.current_fishes_sale:
+            total += self.pricePerCatch(i)
+        return total
+
+
+    def update_sale_button(self):
+        count = len(self.current_fishes_sale)
+        total = self.get_sale_amount()
+
+        self.action_btn.configure(text=f"Vendre x{count}\n({total}$)",
+                                  command=self.confirm_sale if count > 0 else None)
+
+    def reset_ui_after_buy(self):
+
+        for widget in self.inv_frame.winfo_children():
+            widget.destroy()
+
+        self.place_inventory_grid()
+        if hasattr(self, "current_selected_name") and self.current_selected_name in self.inventory_dict:
+            self.selected_fish(self.current_selected_name)
+        else:
+            for widget in self.selection_frame.winfo_children():
+                if widget != self.sel_title:
+                    widget.destroy()
+            self.sel_title.configure(text="Aucun poisson de selectionné")
+
+
+        self.money_label.configure(text=f"Poissonnier\nargent: {self.master_app.user.getUserMoney()} $")
+
+
 
     ##############    
     ####ACHATS####
@@ -98,34 +285,38 @@ class shopFrame(ctk.CTkFrame):
 
         self.shop_scroll = ctk.CTkScrollableFrame(self.left_view_container, fg_color="#dee6ed")
         self.shop_scroll.pack(fill="both", expand=True, padx=10, pady=10)
-        
         self.shop_scroll.grid_columnconfigure(0, weight=1)
         self.shop_scroll.grid_columnconfigure(1, weight=1)
 
-        upgrade_data = [
-            ("Augmente le temps de pêche de 0.5s", "250$", "#bce1f5","#6c9fb8",0),
-            ("Augmente le temps de pêche de 1s", "300$", "#a2e8c1","#63af85",1),
-            ("Multiplie ton nombre de clicks par x2", "1000$", "#f3d179","#c4a046",2),
-            ("Multiplie le prix de vente par x1.5", "1500$", "#f092e0","#bc5fac",3)
-        ]
+        self.card_shop_dict = dict()
+        self.selected_card_id = None
+        purchased = self.master_app.user.getPurchasedUpgrades()
 
         row, col = 0, 0
-        for text, price, color, h_color,id_num in upgrade_data:
-            card_text = f"{text}\n\n{price}"
-            
+        for id_num, info in self.master_app.data.getUpgrades().items():
+            if id_num in purchased:
+                card_text = f"{info['text']}\n\nAcheté !"
+                state = "disabled"
+            else:
+                card_text = f"{info['text']}\n\n{int(info['price'])}$"
+                state = "normal"
+
             card = ctk.CTkButton(
-                self.shop_scroll, 
-                text=card_text, 
+                self.shop_scroll,
+                text=card_text,
                 font=("arial", 13, "bold"),
                 text_color="#000000",
-                fg_color=color, 
-                hover_color=h_color, 
+                fg_color=info["color"],
+                hover_color=info["hover_color"],
+                border_color="#66ce7f",
+                border_width=0,
                 corner_radius=12,
                 height=110,
-                command = lambda i = id_num : self.selected_card(i)
+                state=state,
+                command=lambda i=id_num: self.selected_card(i)
             )
             card.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
-            self.card_shop_dict[id_num]=card
+            self.card_shop_dict[id_num] = card
 
             col += 1
             if col > 1:
@@ -133,13 +324,46 @@ class shopFrame(ctk.CTkFrame):
                 row += 1
 
     def selected_card(self, card_id):
-        #change color of the border to select the card
-        #change name of the btn to confirm purchase
-        #the btn calls confirm purchase
-        pass
+        self.selected_card_id = card_id
+
+        for btn in self.card_shop_dict.values():
+            btn.configure(border_width=0)
+        self.card_shop_dict[card_id].configure(border_width=3)
+
+        info = self.master_app.data.getUpgrades()[card_id]
+        price = int(info["price"])
+
+        if self.master_app.user.getUserMoney() >= price:
+            self.action_btn.configure(text=f"Acheter\n({price}$)", command=self.confirm_purchase)
+        else:
+            self.action_btn.configure(text=f"Manque{price-self.master_app.user.getUserMoney()} $\n({price}$)", command=None)
+
     def confirm_purchase(self):
-        #lowers the money
-        pass
+        if self.selected_card_id is None:
+            return
+
+        info = self.master_app.data.getUpgrades()[self.selected_card_id]
+        price = int(info["price"])
+        user = self.master_app.user
+
+        if user.getUserMoney() < price or self.selected_card_id in user.getPurchasedUpgrades():
+            return
+
+        user.addUserMoney(-price)
+        user.getPurchasedUpgrades().append(self.selected_card_id)
+
+        stat = info["stat"]
+        amount = info["amount"]
+        if stat == "bonus_time":
+            user.setBonusTime(user.getBonusTime() + float(amount))
+        elif stat == "sell_mult":
+            user.setSellMult(user.getSellMult() * float(amount))
+        elif stat == "click_mult":
+            user.setClickMult(user.getClickMult() * int(amount))
+
+        self.money_label.configure(text=f"Poissonnier\nargent: {user.getUserMoney()} $")
+        self.dialogue_lbl.configure(text="- merci pour ton achat !")
+        self.switch_shop_tab("achats")
 
 
 
@@ -148,7 +372,6 @@ class shopFrame(ctk.CTkFrame):
         graph_title = ctk.CTkLabel(self.left_view_container, text="Prix moyen par type de poisson", font=("arial", 18, "bold"))
         graph_title.pack(pady=(15, 5))
 
-        # A FAIRE: graphique en ce moment vide
         fig, ax = plt.subplots(figsize=(5, 4), facecolor="#dee6ed",)
         ax.set_facecolor("#f5f2eb")
         
@@ -195,12 +418,13 @@ class shopFrame(ctk.CTkFrame):
                                                          catchsize= current_catch_mean_size, 
                                                          rarity=current_catch_rarity))
             
-            rarity_color_list.append(rarities[current_catch_rarity])
+            rarity_color_list.append(self.master_app.data.getRarityColor(current_catch_rarity))
         
         #je créer des fausses bars afin de créer une legende custom
 
-        for label, color in rarities.items():
-            plt.bar(0, 0, color=color, label=label)
+        for rarity_name in self.master_app.data.rarities:
+            color = self.master_app.data.getRarityColor(rarity_name)
+            plt.bar(0, 0, color=color, label=rarity_name)
 
         plt.legend()    
         
@@ -237,13 +461,12 @@ class shopFrame(ctk.CTkFrame):
         self.money_label = ctk.CTkLabel(right_panel, text=f"Poissonnier\nargent: {self.master_app.user.getUserMoney()} $", font=("arial", 16, "bold"), text_color="#ffffff")
         self.money_label.pack(pady=(20, 10))
 
-        # A FAIRE: image du vendeur
-        self.vendor_img_frame = ctk.CTkFrame(right_panel, fg_color="#2b2b2b", width=180, height=180, corner_radius=0)
+        self.vendor_img_frame = ctk.CTkFrame(right_panel, fg_color="#2b2b2b", width=210, height=252, corner_radius=0)
         self.vendor_img_frame.pack(pady=5)
         self.vendor_img_frame.pack_propagate(False)
         
-        vendor_placeholder = ctk.CTkLabel(self.vendor_img_frame, text="[ Image Vendor TO DO ]", text_color="#ffffff")
-        vendor_placeholder.pack(expand=True)
+        self.vendor_gif = GifImage(self.vendor_img_frame, r"assets\cat_vendor.gif",210,252,40)
+        self.vendor_gif.pack(expand=True, fill="both")
 
         #modifie dependant de ce qui se passe
         self.dialogue_lbl = ctk.CTkLabel(right_panel, text="- bienvenue ! ", font=("arial", 13, "italic"), text_color="#ffffff")
@@ -270,27 +493,17 @@ class shopFrame(ctk.CTkFrame):
     def pricePerCatch(self, catch = None, catchweight = None, catchsize = None, rarity = None):
 
         if catch is not None:
-            factor = ((catch.weight / (catch.weight + 2.0)) + (catch.size / (catch.size + 40.0)))/2
-            base_price = 8.0+(4*factor) #entre 8 et 12$
+            factor = ((catch.weight / (catch.weight + 2.0)) + (catch.size / (catch.size + 40.0))) / 2
+            base_price = 8.0 + (4 * factor) #entre 8 et 12$
 
-            return round(base_price*self.getRarityMult(catch.rarity),2)
-        
+            return int(round(base_price * self.master_app.data.getRarityMult(catch.rarity) * self.master_app.user.getSellMult(), 2))
+
         if catchsize is not None and catchweight is not None and rarity is not None:
-            factor = ((catchweight / (catchweight + 2.0)) + (catchsize / (catchsize + 40.0)))/2
-            base_price = 8.0+(4*factor) #entre 8 et 12$
+            factor = ((catchweight / (catchweight + 2.0)) + (catchsize / (catchsize + 40.0))) / 2
+            base_price = 8.0 + (4 * factor) #entre 8 et 12$
 
-            return int(round(base_price*self.getRarityMult(rarity),2))
+            return int(round(base_price * self.master_app.data.getRarityMult(rarity) * self.master_app.user.getSellMult(), 2))
 
         return 0
         
 
-
-    def getRarityMult(self, rarity):
-        temp_dict_rarity_mult = {
-            "common": 1.0,
-            "uncommon": 1.5,
-            "rare": 2.5,
-            "epic": 4.5,
-            "legendary": 7
-        }
-        return temp_dict_rarity_mult[rarity]

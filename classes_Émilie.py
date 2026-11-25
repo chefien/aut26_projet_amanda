@@ -19,6 +19,7 @@ class User():
 
         #contiendra tout ce qui sera attrappé
         self.inventory = []
+        self.total_inventory = []
 
         #argent du joueur
         self.money = 0
@@ -27,6 +28,14 @@ class User():
         self.nbFish = 0
         self.nbTrash = 0
         self.nbCatch = 0
+
+        #upgrades du magasin
+        self.bonus_time = 0.0
+        self.sell_mult = 1
+        self.click_mult = 1
+
+        self.purchased_upgrades = []
+
 
 
     #setters
@@ -39,6 +48,8 @@ class User():
 
     def setUserInventory(self, inventory):
         self.inventory = inventory
+    def setUserTotalInventory(self, inventory):
+        self.total_inventory = inventory
 
     def setUserNbFish(self, nbFish):
         self.nbFish = nbFish
@@ -50,7 +61,7 @@ class User():
             self.nbCatch = nbCatch
             
     def setUserMoney(self,earnings):
-        self.money=earnings
+        self.money= int(earnings)
 
 
     #getters
@@ -62,6 +73,9 @@ class User():
 
     def getUserInventory(self):
         return self.inventory
+    
+    def getUserTotalInventory(self):
+        return self.total_inventory
 
     def getUserNbFish(self):
         return self.nbFish
@@ -75,11 +89,38 @@ class User():
     def getUserMoney(self):
         return self.money
 
+    def getBonusTime(self):
+        return self.bonus_time
+    def setBonusTime(self, bonus_time):
+        self.bonus_time = bonus_time
+
+    def getSellMult(self):
+        return self.sell_mult
+    def setSellMult(self, sell_mult):
+        self.sell_mult = sell_mult
+
+    def getClickMult(self):
+        return self.click_mult
+    def setClickMult(self, click_mult):
+        self.click_mult = click_mult
+
+    def getPurchasedUpgrades(self):
+        return self.purchased_upgrades
+    
+    def setPurchasedUpgrades(self, purchased_upgrades):
+        self.purchased_upgrades = purchased_upgrades
+
+    def addUserMoney(self, amount):
+        new_total = int(self.getUserMoney()+amount)
+        self.setUserMoney(new_total)
+
 
     #met à jour l'inventaire, le total de poissons, de déchets et les deux ensemble
     def updateInventory(self, catch):
-        self.inventory.append(catch)
+        self.total_inventory.append(catch)
         self.nbCatch += 1
+
+        self.inventory.append(catch)
 
         if catch.isFish:
             self.nbFish += 1
@@ -106,113 +147,36 @@ class Catch():
     def __init__(self, data):
 
         #on choisit la rareté du catch, et ensuite on choisis le catch ayant la meme rareté
-        rarity = random.choices(["common", "uncommon", "rare", "epic", "legendary"], weights=[60, 22, 10, 5, 3])[0]
+        rarity = random.choices(data.getRarityList(), weights=data.getRarityWeights())[0]
         catchs_with_rarity = data.dataFrame[data.dataFrame['rarity']==rarity]['name'].tolist()
 
         self.name = random.choice(catchs_with_rarity)
 
-        #pour les poissons
+        # pour les poissons
         if self.name in data.getFishNameList():
-
-            #on veut le poids (en kg) au hasard dans la plage associée
-            self.weight = random.uniform(float(data.getFishSpecific(self.name)["startWeight"]), float(data.getFishSpecific(self.name)["finishWeight"]))
-            #on a seulement besoin de 3 chiffres après la virgule
-            self.weight = round(self.weight,3)
-
-            #on veut la longueur (en cm) au hasard dans la plage associée
-            self.size = random.uniform(float(data.getFishSpecific(self.name)["startSize"]), float(data.getFishSpecific(self.name)["finishSize"]))
-            #on a seulement besoin de 3 chiffres après la virgule
-            self.size = round(self.size,3)
-
+            info = data.getFishSpecific(self.name)
             self.isFish = True
-
-            #la description spécifique à la sorte de poisson
-            self.description = data.getFishSpecific(self.name)["description"]
-
-            #la rareté va servir pour implémenter le temps d'attente et le nombre de clics pour la pêche
-            self.rarity = data.getFishSpecific(self.name)["rarity"]
-
-
-        #pour les déchets
-        else : 
-
-            #on veut le poids (en kg) au hasard dans la plage associée
-            self.weight = random.uniform(float(data.getTrashSpecific(self.name)["startWeight"]), float(data.getTrashSpecific(self.name)["finishWeight"]))  #(en kg)
-            #on a seulement besoin de 3 chiffres après la virgule
-            self.weight = round(self.weight,3)
-
-            #on veut la longueur (en cm) au hasard dans la plage associée
-            self.size = random.uniform(float(data.getTrashSpecific(self.name)["startSize"]), float(data.getTrashSpecific(self.name)["finishSize"]))  #(en cm)
-            #on a seulement besoin de 3 chiffres après la virgule
-            self.size = round(self.size,3)
-
+        # pour les déchets
+        else:
+            info = data.getTrashSpecific(self.name)
             self.isFish = False
 
-            #la description spécifique à la sorte de déchet
-            self.description = data.getTrashSpecific(self.name)["description"]
+        self.weight = round(random.uniform(float(info["startWeight"]), float(info["finishWeight"])), 3)
+        self.size = round(random.uniform(float(info["startSize"]), float(info["finishSize"])), 3)
+        self.isSold = False
+        self.description = info["description"]
+        self.rarity = str(info["rarity"]).strip().lower()
 
-            #la rareté va servir pour implémenter le temps d'attente et le nombre de clics pour la pêche
-            self.rarity = data.getTrashSpecific(self.name)["rarity"]
-
-
-        #on a choisi d'avoir le temps de pêche constant, peu importe la rareté
-        #il s'agit du temps maximal pour atteindre le nombre clics requis pour obtenir la prise (en sec)
+        # temps maximal pour atteindre le nombre de clics requis (en sec)
         self.timeFishing = 10
 
-        #les attributs du temps d'attente et du nombre de clics nécessaires pour pêcher dépendent de la rareté
-        if self.rarity == "common":
-
-            #le temps d'attente avant que la pêche ne commence (en sec)
-            self.timeWaiting = 4
-
-            #le nombre de clics nécessaire d'atteindre pour obtenir la prise
-            self.clicks = 10
-
-        elif self.rarity == "uncommon":
-
-            #on veut augmenter un peu le temps d'attente pour que l'utilisateur
-            #ait une petite idée de la difficulté de la pêche qui s'en vient
-            #(+1 sec avec la rareté précédente)
-            self.timeWaiting = 5  #(en sec)
-
-            #on veut augmenter le nombre de clics pour que la difficulté 
-            #augmente avec la rareté, puisque que le temps de pêche reste le même
-            #(+6 clics avec la rareté précédente)
-            self.clicks = 16
-
-        elif self.rarity == "rare":
-
-            #(+1 sec avec la rareté précédente)
-            self.timeWaiting = 6  #(en sec)
-
-            #(+8 clics avec la rareté précédente)
-            self.clicks = 24
-
-        elif self.rarity == "epic":
-
-            #(+1 sec avec la rareté précédente)
-            self.timeWaiting = 7  #(en sec)
-
-            #(+11 clics avec la rareté précédente)
-            self.clicks = 35
-
-        elif self.rarity == "legendary":
-
-            #(+1 sec avec la rareté précédente)
-            self.timeWaiting = 8  #(en sec)
-
-            #(+15 clics avec la rareté précédente)
-            self.clicks = 50
-
-
-        #au cas où il y aurait un problème de chargement
+        # temps d'attente et nombre de clics chargés depuis rarities.csv
+        if self.rarity in data.rarities:
+            self.timeWaiting = data.getRarityTimeWaiting(self.rarity)
+            self.clicks = data.getRarityClicks(self.rarity)
         else:
-
-            #pour pas que l'utilisateur n'attende pour rien
-            self.timeWaiting = 0  #(en sec)
-
-            #pour pas que l'utilisateur de travail pour rien
-            self.clicks = 0     
+            self.timeWaiting = 0
+            self.clicks = 0
 
 
     #setters
@@ -227,6 +191,9 @@ class Catch():
 
     def setIsFish(self, isFish):
         self.isFish = isFish
+
+    def setIsSold (self, isSold):
+        self.isSold = isSold
 
     def setDescription(self, description):
         self.description = description
@@ -257,6 +224,9 @@ class Catch():
     
     def getIsFish(self):
         return self.isFish
+
+    def getIsSold(self):
+        return self.isSold
     
     def getDescription(self):
         return self.description
@@ -285,8 +255,8 @@ class Timer():
     def __init__(self, master, seconds):
 
         #temps inital du timer
-        self.seconds = seconds
-        self.milliseconds = 0
+        self.seconds = int(seconds)
+        self.milliseconds = int((seconds-self.seconds)*100)
 
         #servira principalement à savoir si le timer a déjà été détruit (autoDestruct)
         self.isFinished = False

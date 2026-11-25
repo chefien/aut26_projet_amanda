@@ -1,0 +1,7 @@
+id,text,price,color,hover_color,stat,amount,isBought
+0,Augmente le temps de pêche de +2s,80,#bce1f5,#6c9fb8,bonus_time,2.0,False
+1,Augmente le temps de pêche de +3s,200,#a2e8c1,#63af85,bonus_time,3.0,False
+2,Multiplie le prix de vente par x1.5,150,#f092e0,#bc5fac,sell_mult,1.5,False
+3,Multiplie le prix de vente par x1.5,350,#f5a8c9,#c46c91,sell_mult,1.5,False
+4,Multiplie ton nombre de clics par x2,300,#f3d179,#c4a046,click_mult,2,False
+5,Multiplie ton nombre de clics par x2,700,#f7b267,#c7823a,click_mult,2,False

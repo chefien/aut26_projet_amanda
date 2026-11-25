@@ -1,6 +1,6 @@
-rarity,multiplier,color
-common,1.0,#ea9898
-uncommon,1.5,#f6e15dff
-rare,2.5,#83d978
-epic,4.5,#82dce4
-legendary,7.0,#c064f5
+rarity,multiplier,color,weight,timeWaiting,clicks
+common,1.0,#ea9898,60,4,10
+uncommon,1.5,#f6e15dff,22,5,16
+rare,2.5,#83d978,10,6,24
+epic,4.5,#82dce4,5,7,35
+legendary,7.0,#c064f5,3,8,50
