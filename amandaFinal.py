@@ -4,6 +4,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
 from classe_khadija import ImageConfig, GifImage
+from classes_Émilie import Catch, Timer
 
 class shopFrame(ctk.CTkFrame):
     def __init__(self, master):
@@ -25,7 +26,6 @@ class shopFrame(ctk.CTkFrame):
         ##achat
         self.btn_shop = ctk.CTkButton(self.nav_frame, text="achats", font=btn_font, fg_color="#f1e9c8", text_color="#000000", hover_color="#e2dbc0", command=lambda: self.switch_shop_tab("achats"))
         self.btn_shop.pack(side="left", padx=20)
-        self.card_shop_dict = dict()
         ##comparaison
         self.btn_comparaison = ctk.CTkButton(self.nav_frame, text="comparaison prix de ventes", font=btn_font, fg_color="#f1e9c8", text_color="#000000", hover_color="#e2dbc0", command=lambda: self.switch_shop_tab("comparaison"))
         self.btn_comparaison.pack(side="left", padx=20)
@@ -66,18 +66,20 @@ class shopFrame(ctk.CTkFrame):
         elif tab_name == "comparaison":
             self.create_comparaison_view()
 
-        self.reset_vendor_ui(tab_name)
+        self.reset_shop_ui(tab_name)
 
-    def reset_vendor_ui(self,tab_name):
+    def reset_shop_ui(self,tab_name):
         self.current_fishes_sale = []
         
         if tab_name == "vente":
             self.action_btn.pack(side="bottom", pady=25)
             self.action_btn.configure(text="Vendre x0\n(0$)", command = None)
+            
 
         elif tab_name == "achats":
             self.action_btn.pack(side="bottom", pady=25)
             self.action_btn.configure(text="Acheter\n(0$)", command = None)
+            self.selected_card_id = None
         
         elif tab_name == "comparaison":
             self.action_btn.configure(command = None)            
@@ -167,7 +169,6 @@ class shopFrame(ctk.CTkFrame):
         self.inventory_dict[fish_name].configure(border_width = 2)
 
         #modifie le label de selection
-        self.sel_title.configure(text=fish_name)
         self.show_list_selection(fish_name)
         self.update_sale_button()
 
@@ -186,6 +187,14 @@ class shopFrame(ctk.CTkFrame):
             if widget != self.sel_title:
                 widget.destroy()
 
+        self.full_select_btn = ctk.CTkButton(self.selection_frame, 
+                                   fg_color="#e4866c", 
+                                   hover_color="#dc6130",
+                                   command = self.selected_all_fish,
+                                   text= "Tout sélectionner",
+                                   text_color='black')
+        self.full_select_btn.pack(padx = 5, pady = 5, fill = 'x')
+
         for i in list_selection:
 
             if i.weight < 1.0:
@@ -203,6 +212,18 @@ class shopFrame(ctk.CTkFrame):
             button.pack(padx = 5, pady = 5, fill = 'x')
 
             self.selection_inv_dict[i] = button
+    def selected_all_fish(self):
+        for fish in self.selection_inv_dict:
+            if fish not in self.current_fishes_sale:
+                self.add_selected_list_fish(fish)
+        self.full_select_btn.configure(text = 'Tout desélectionner', command = self.selected_no_fish)
+    
+    def selected_no_fish(self):
+        
+        for fish in self.selection_inv_dict:
+            if fish in self.current_fishes_sale:
+                self.remove_selected_list_fish(fish)
+        self.full_select_btn.configure(text = 'Tout sélectionner', command = self.selected_all_fish)
 
     def add_selected_list_fish(self, fish):
         #change button to deselect
@@ -237,8 +258,8 @@ class shopFrame(ctk.CTkFrame):
         self.current_fishes_sale = []
         self.update_sale_button()
         
-        self.master_app.user.setUserInventory(newInventory.copy())
-        self.master_app.user.setUserTotalInventory(newTotalInventory.copy())
+        self.master_app.user.setUserInventory(newInventory)
+        self.master_app.user.setUserTotalInventory(newTotalInventory)
         self.reset_ui_after_buy()
 
     
@@ -336,7 +357,7 @@ class shopFrame(ctk.CTkFrame):
         if self.master_app.user.getUserMoney() >= price:
             self.action_btn.configure(text=f"Acheter\n({price}$)", command=self.confirm_purchase)
         else:
-            self.action_btn.configure(text=f"Manque{price-self.master_app.user.getUserMoney()} $\n({price}$)", command=None)
+            self.action_btn.configure(text=f"Pas assez!\n({price}$)", command=None)
 
     def confirm_purchase(self):
         if self.selected_card_id is None:
@@ -363,7 +384,9 @@ class shopFrame(ctk.CTkFrame):
 
         self.money_label.configure(text=f"Poissonnier\nargent: {user.getUserMoney()} $")
         self.dialogue_lbl.configure(text="- merci pour ton achat !")
-        self.switch_shop_tab("achats")
+        self.card_shop_dict[self.selected_card_id].configure(state = 'disabled',border_width=0 ,text=f"{info['text']}\n\nAcheté !")
+
+        self.reset_shop_ui("achats")
 
 
 
@@ -381,7 +404,7 @@ class shopFrame(ctk.CTkFrame):
 
         plt.tight_layout()
 
-        plt.subplots_adjust(left=0.05, bottom=0.3, top = 1)
+        plt.subplots_adjust(left=0.11, bottom=0.35, right=0.98, top=0.95)
 
         self.canvas = FigureCanvasTkAgg(fig, master=self.left_view_container)
         self.canvas.draw()
@@ -392,59 +415,91 @@ class shopFrame(ctk.CTkFrame):
     ##matplotlib graph##
 
     def create_graph(self):
-        ##read file
+        ##check s'il y a un bonus aux pric
+        apply_bonus = self.master_app.user.getSellMult() > 1
 
         #types de poissons
         catch_list = self.master_app.data.getFishNameList()    
         x = np.array(catch_list)
 
         average_price_list = list()
+        average_price_bonus_list = list()
         rarity_color_list = list()
 
-        rarities = {
-                "common": "#ea9898",
-                "uncommon": "#f6e15dff",
-                "rare": "#83d978",
-                "epic": "#82dce4",
-                "legendary": "#c064f5",
-                }
 
         for catch_name in catch_list:
             current_catch = self.master_app.data.getFishSpecific(catch_name)
             current_catch_mean_weight = (current_catch["finishWeight"]+current_catch["startWeight"])/2.0
             current_catch_mean_size = (current_catch["finishSize"]+current_catch["startSize"])/2.0
             current_catch_rarity = current_catch["rarity"]
+
+            if apply_bonus:    
+                average_price_bonus_list.append(self.pricePerCatch(catchweight=current_catch_mean_weight, 
+                                                            catchsize= current_catch_mean_size, 
+                                                            rarity=current_catch_rarity))
             average_price_list.append(self.pricePerCatch(catchweight=current_catch_mean_weight, 
-                                                         catchsize= current_catch_mean_size, 
-                                                         rarity=current_catch_rarity))
+                                                        catchsize= current_catch_mean_size, 
+                                                        rarity=current_catch_rarity,
+                                                        apply_bonus=False))
             
+                
             rarity_color_list.append(self.master_app.data.getRarityColor(current_catch_rarity))
-        
+        #difference entre les 2
+
+        y_base = np.array(average_price_list)
+        if len(average_price_bonus_list)>0:
+            y_total = np.array(average_price_bonus_list)
+            y_diff = y_total-y_base
         #je créer des fausses bars afin de créer une legende custom
 
         for rarity_name in self.master_app.data.rarities:
             color = self.master_app.data.getRarityColor(rarity_name)
             plt.bar(0, 0, color=color, label=rarity_name)
 
-        plt.legend()    
         
-        y = np.array(average_price_list)
 
         plt.grid(axis = 'y',linewidth = "1.4", linestyle = 'dotted', zorder = 1) 
         
-        bars = plt.bar(x, y, color=rarity_color_list, zorder=3)
+        bars_base = plt.bar(x, y_base, color=rarity_color_list, zorder=3)
 
-        plt.bar_label(
-            bars,         
+        if apply_bonus:
+            bonus_bar = plt.bar(x, y_diff,
+                                bottom=y_base,
+                                color="#ffd166",
+                                hatch="//",
+                                edgecolor="#BC6611",
+                                linewidth = 0,
+                                zorder=3,
+                                label="Bonus"
+                                )
+            plt.bar_label(
+            bonus_bar, 
+            labels=[f"{total}$\n+{diff}$" for total, diff in zip(y_total, y_diff)],        
             padding=6, 
             fmt='%.0f$',        
             fontsize=9,         
             color="#353433",
         )
-        
-        plt.tick_params('x', rotation = 45, rotation_mode = 'xtick')
+        else:
 
-        plt.ylim(0, max(y) * 1.12)  
+            plt.bar_label(
+                bars_base,         
+                padding=6, 
+                fmt='%.0f$',        
+                fontsize=9,         
+                color="#353433"
+            )
+    
+    
+        plt.legend()    
+
+        plt.tick_params('x', rotation = 45, rotation_mode = 'xtick')
+        if apply_bonus:
+            plt.ylim(0, max(y_total) * 1.18)
+        else:
+            plt.ylim(0, max(y_base) * 1.12)  
+
+        plt.margins(x=0.01)
              
         
         
@@ -487,23 +542,75 @@ class shopFrame(ctk.CTkFrame):
         )
         self.action_btn.pack(side="bottom", pady=25)
 
-    def shopScreen(self):
-        return self
+   
+    def pricePerCatch(self, catch = None, catchweight = None, catchsize = None, rarity = None,apply_bonus=True):
 
-    def pricePerCatch(self, catch = None, catchweight = None, catchsize = None, rarity = None):
+        if apply_bonus :
+            mult = self.master_app.user.getSellMult()
+        else:
+            mult = 1
 
         if catch is not None:
             factor = ((catch.weight / (catch.weight + 2.0)) + (catch.size / (catch.size + 40.0))) / 2
             base_price = 8.0 + (4 * factor) #entre 8 et 12$
 
-            return int(round(base_price * self.master_app.data.getRarityMult(catch.rarity) * self.master_app.user.getSellMult(), 2))
+            return int(round(base_price * self.master_app.data.getRarityMult(catch.rarity) * mult, 2))
 
         if catchsize is not None and catchweight is not None and rarity is not None:
             factor = ((catchweight / (catchweight + 2.0)) + (catchsize / (catchsize + 40.0))) / 2
             base_price = 8.0 + (4 * factor) #entre 8 et 12$
 
-            return int(round(base_price * self.master_app.data.getRarityMult(rarity) * self.master_app.user.getSellMult(), 2))
+            return int(round(base_price * self.master_app.data.getRarityMult(rarity) * mult, 2))
 
         return 0
         
 
+class fishing():
+        
+        def __init__(self, data, user):
+            self.data = data
+            self.user = user
+            #génère un catch 
+            self.catch = Catch(self.data)
+
+            self.wait_time = self.catch.getTimeWaiting()*1000 
+
+            self.total_clicks = self.catch.getNbClicks()
+
+            if self.total_clicks<=0:
+                self.total_clicks = 10 #pour éviter la div par 0
+
+            self.clicks_left = self.total_clicks
+            self.ratio = 0
+
+
+        def getTimeToCatchMilli(self):
+            return (self.getTimeToCatchSeconds()*1000)
+
+        def getTimeToCatchSeconds(self):
+            return int(self.catch.getTimeFishing()+self.user.getBonusTime())
+    
+
+        def isCaught(self):
+            self.clicks_left = max(0, self.clicks_left - self.user.getClickMult()) #si c'est negatif, ca devient 0
+            #change button everytime, returns the text?
+            #self.fish_button.configure(text = f"({self.clicks_left} clics restants)")
+            
+            self.ratio = (self.total_clicks - self.clicks_left) / self.total_clicks
+             
+
+            if self.clicks_left <= 0:
+                
+                self.user.updateInventory(self.catch)
+                return True
+
+            return False
+        def getRatio(self):
+            return self.ratio
+        def getClicksLeft(self):
+            return self.clicks_left
+        def getCatch(self):
+            return self.catch
+         
+
+    

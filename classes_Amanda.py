@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 ##individuel
-from shopFrame import shopFrame
+from amandaFinal import shopFrame, fishing
 
 
 
@@ -499,10 +499,6 @@ class GameScreen(ctk.CTkFrame):
         )
         if path:
             saving = SavingSystem(self.master.user, path, self.master.data)
-            saving.setUsername(self.master.user.getUserName())
-            saving.setLevel(self.master.user.getUserLevel())
-            saving.setInv(self.master.user.getUserInventory())
-            saving.setTotalInv(self.master.user.getUserTotalInventory())
             saving.savingToFile()
             print("Partie sauvegardée dans", path)
 
@@ -545,10 +541,6 @@ class GameScreen(ctk.CTkFrame):
 
         self.switch_panel('main')
                     
-
-    def on_options(self):
-        print("Bouton options cliqué")
-
     def on_stats(self):            
         self.switch_panel('stats')
 
@@ -651,7 +643,7 @@ class GameScreen(ctk.CTkFrame):
 
             self.label_fish_name.configure(text = fish_name)
 
-            list_fish = self.master.data.getFishSpecificStatsList(fish_name).copy()
+            list_fish = self.master.data.getFishSpecificStatsList(fish_name)
 
             self.label_fish_desc.configure(text = list_fish[-2])
 
@@ -679,39 +671,17 @@ class GameScreen(ctk.CTkFrame):
                     label.pack(pady = 5, padx = 10, anchor = 'w')
 
     def on_fishing(self):
-        if self.fishing_timer != None:
-            self.fishing_timer.autoDestruct()
-        self.fishing_timer = None
-
-        #génère un catch 
-        self.current_catch = Catch(self.master.data)
-
-        #temps d'attente selon la rareté
-        sec = self.current_catch.getTimeWaiting()
-        if sec <= 0:
-            sec = 4
-        wait_time = sec * 1000
-
-        #clics selon la rareté
-        self.clicks_total = self.current_catch.getNbClicks()
-        if self.clicks_total <= 0:
-            self.clicks_total = 10
-        self.clicks_left = self.clicks_total
+        self.fishing = fishing(self.master.data, self.master.user)
 
         self.fish_button.configure(text = "Patientez...", state = 'disabled')
-        self.wait_job = self.after(wait_time, self.start_bite)
+        self.wait_job = self.after(self.fishing.wait_time, self.start_bite)
 
 
     def start_bite(self):
-        #temps pour pêcher selon le catch
-        sec_to_catch = self.current_catch.getTimeFishing()+self.master.user.getBonusTime()
-        if sec_to_catch <= 0:
-            sec_to_catch = 10
-
-        self.fishing_timer = Timer(self.header_frame, sec_to_catch)
-        self.fishing_timer.updateTimerWithPrint()
-        self.escape_job = self.after(int(sec_to_catch*1000), self.on_escaped)
         
+        self.fishing_timer = Timer(self.header_frame, self.fishing.getTimeToCatchSeconds())
+        self.fishing_timer.updateTimerWithPrint()
+        self.escape_job = self.after(self.fishing.getTimeToCatchMilli(), self.on_escaped)
         
 
         self.fish_button.configure(
@@ -722,46 +692,48 @@ class GameScreen(ctk.CTkFrame):
 
 
     def on_reel_click(self):
-        self.clicks_left = max(0, self.clicks_left - self.master.user.getClickMult()) #si c'est negatif, ca devient 0
-        self.fish_button.configure(text = f"({self.clicks_left} clics restants)")
-        
-        ratio = (self.clicks_total - self.clicks_left) / self.clicks_total
-        self.reel_bar.set(ratio)  
 
-        if self.clicks_left <= 0:
+        isCaught = self.fishing.isCaught()
+        if self.fishing.getRatio() > 0.5 :
+            self.fish_button.configure(text = "Presque...")
+        
+        self.reel_bar.set(self.fishing.getRatio())  
+
+        if isCaught:
+
+            catch_name = self.fishing.getCatch().getName()
+
             self.fish_button.configure(command=None, state = "disabled")    
             if self.fishing_timer != None:
                 self.fishing_timer.stop()
             self.after_cancel(self.escape_job)
 
-            self.master.user.updateInventory(self.current_catch)
-
-            if self.current_catch.isFish:
-                path = f"assets/{self.current_catch.name}.png"
+            if self.fishing.getCatch().getIsFish():
+                path = f"assets/{catch_name}.png"
                 current_fish_image = ImageConfig(path, 100, 100)
-                self.gallery_dict[self.current_catch.name].configure(image = current_fish_image.getImage())
+                self.gallery_dict[catch_name].configure(image = current_fish_image.getImage())
+                self.fish_button.configure(text = f"Poisson attrapé!\n{catch_name}", fg_color="#69F0C1")
+                self.show_catched_fish(catch_name)
+            else:
+                self.fish_button.configure(text = f"Déchet repêché...\n{catch_name}", fg_color="#949A31")
+
 
             self.user_fish_label.configure(text = f'Poissons : {self.master.user.getUserNbFish()}')
             if self.master.user.isLeveledUp():
                 self.user_level_label.configure(text = f'Niveau : {self.master.user.getUserLevel()}')
 
-            if self.current_catch.name == self.current_selected_name:
-                self.modify_inventory_list(self.current_catch.name)
+            if catch_name == self.current_selected_name:
+                self.modify_inventory_list(catch_name)
 
-            if self.current_catch.isFish:
-                self.fish_button.configure(text = f"Poisson attrapé!\n{self.current_catch.name}", fg_color="#69F0C1")
-                self.show_catched_fish()
-            else:
-                self.fish_button.configure(text = f"Déchet repêché...\n{self.current_catch.name}", fg_color="#949A31")
             self.reset_job = self.after(3000, self.normal_fish_button)
 
     def on_escaped(self):
-        if self.clicks_left > 0:
+        if not self.fishing.getClicksLeft() >0:
             self.fish_button.configure(text = "Le poisson s'est échappé...", state = 'disabled')
             self.reset_job = self.after(3000, self.normal_fish_button)          
 
             
-    def show_catched_fish(self):
+    def show_catched_fish(self, fish_name):
         show_fish_frame = ctk.CTkFrame(self.center_panel,
                                        height=200,width=200,
                                         border_color="#FFFFFF",
@@ -770,7 +742,7 @@ class GameScreen(ctk.CTkFrame):
         
         show_fish_frame.place(relx=0.5, rely=0.42, anchor='center')
 
-        path = f"assets/{self.current_catch.name}.png"
+        path = f"assets/{fish_name}.png"
         current_fish_image = ImageConfig(path,200,200) 
         show_fish_label = ctk.CTkLabel(show_fish_frame,
                                        image = current_fish_image.getImage(),

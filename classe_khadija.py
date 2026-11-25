@@ -66,7 +66,6 @@ class Data():
     def readFile(self): #transporter le csv à un dataFrame
         try:
             df = pd.read_csv(self.file, delimiter = ';')
-            df = pd.DataFrame(df) #conversion au dataframe/ tableau plus beau
         except Exception as e:
             print(e)
             return None

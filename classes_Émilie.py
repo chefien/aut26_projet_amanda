@@ -306,18 +306,6 @@ class Timer():
             self.after_id = self.master.after(3000, self.autoDestruct)
 
             
-    #timer sans affichage du compte-à-rebours
-    def updatetimerWithoutPrint(self):
-        currentTime = time.time()
-
-        #si la légende n'a pas encore été détruit (autoDestruct) et on n'est pas encore rendu à la fin
-        if not self.isFinished and currentTime < self.end:
-
-            #puisqu'on ne l'affiche pas, il n'est pas nécessaire de raffraichir aussi souvent        
-            self.master.after(50, self.updatetimerWithoutPrint)
-        
-        else:
-            self.isFinished = True
 
 
     #getter pour savoir si le compte-à-rebours est terminé
