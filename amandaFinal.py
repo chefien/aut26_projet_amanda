@@ -404,7 +404,7 @@ class shopFrame(ctk.CTkFrame):
 
         plt.tight_layout()
 
-        plt.subplots_adjust(left=0.11, bottom=0.35, right=0.98, top=0.95)
+        plt.subplots_adjust(left=0.08, bottom=0.35, right=0.98, top=0.95)
 
         self.canvas = FigureCanvasTkAgg(fig, master=self.left_view_container)
         self.canvas.draw()

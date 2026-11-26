@@ -502,6 +502,7 @@ class GameScreen(ctk.CTkFrame):
             saving.savingToFile()
             print("Partie sauvegardée dans", path)
 
+
     def on_load(self):
         path = ctk.filedialog.askopenfilename(filetypes=[("Fichiers CSV", "*.csv")],
                                               initialdir="saves")
@@ -539,6 +540,9 @@ class GameScreen(ctk.CTkFrame):
         for widget in self.inventory_frame_scroll.winfo_children():
             widget.destroy()
 
+        if self.fishing_timer is not None:
+            self.fishing_timer.stop()
+            self.fishing_timer.autoDestruct()
         self.switch_panel('main')
                     
     def on_stats(self):            
